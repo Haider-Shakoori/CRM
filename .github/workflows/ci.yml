@@ -1,0 +1,67 @@
+name: CRM CI
+
+on:
+  push:
+    branches: [main, phase-0-security-ci-architecture]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crm-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Typecheck, lint, all Vitest projects, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies from lockfile
+        run: npm ci
+      - name: Typecheck all workspaces
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Run all Vitest projects (unit and DOM)
+        run: npx vitest run
+      - name: Build all three applications
+        run: npm run build
+      - name: Validate built website links
+        run: node scripts/check-links.mjs apps/website/dist
+
+  browser:
+    name: Playwright Chromium smoke
+    runs-on: ubuntu-latest
+    needs: frontend
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies from lockfile
+        run: npm ci
+      - name: Install Chromium and dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Run real-browser smoke suite
+        run: npm run test:e2e
+      - name: Upload failure traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore

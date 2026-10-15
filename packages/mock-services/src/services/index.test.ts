@@ -572,7 +572,8 @@ describe('read services', () => {
     expect(overview.ok).toBe(true);
     if (!overview.ok) return;
 
-    const tickets = Object.values(db.state.tickets);
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const tickets = Object.values(db.state.tickets).filter((ticket) => ticket.organizationId === activeId);
     const open = tickets.filter((ticket) => !['resolved', 'closed'].includes(ticket.status));
     expect(overview.data.metrics.openTickets).toBe(open.length);
     // Status buckets must account for every ticket exactly once.
@@ -768,7 +769,8 @@ describe('account hierarchy walk', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const accounts = Object.values(db.state.accounts);
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const accounts = Object.values(db.state.accounts).filter((account) => account.organizationId === activeId);
     expect(result.data).toHaveLength(accounts.length);
     for (const node of result.data) {
       expect(node.id).not.toBe(node.parentId);
@@ -1105,10 +1107,9 @@ describe('support, knowledge base and conversations', () => {
     expect(overview.ok).toBe(true);
     if (!overview.ok) return;
 
-    // Note: the support overview aggregates every seeded ticket, across tenants, because the
-    // mock service reads the ticket collection directly. The assertion records that behaviour
-    // rather than pretending the overview is tenant-scoped.
-    const open = Object.values(db.state.tickets).filter((ticket) => !['resolved', 'closed'].includes(ticket.status)).length;
+    // Only the active organization's tickets contribute to the support overview.
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const open = Object.values(db.state.tickets).filter((ticket) => ticket.organizationId === activeId && !['resolved', 'closed'].includes(ticket.status)).length;
     expect(overview.data.metrics.openTickets).toBe(open);
     expect(overview.data.byStatus.length).toBeGreaterThan(0);
   });
@@ -1192,5 +1193,90 @@ describe('support, knowledge base and conversations', () => {
       expect(summary.data.suggestedReplies.length).toBeGreaterThan(0);
       expect(summary.data.summary.length).toBeGreaterThan(0);
     }
+  });
+});
+
+/* --------------------------- phase 0: tenant ownership regressions */
+
+describe('tenant ownership regression guards (phase 0)', () => {
+  it('rejects foreign record IDs across generic reads and mutations', async () => {
+    const db = freshDb();
+    const services = createMockServices({ db, persist: false });
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const foreign = Object.values(db.state.leads).find((lead) => lead.organizationId !== activeId)!;
+    const snapshot = structuredClone(foreign);
+
+    const read = await services.leads.get(foreign.id);
+    expect(read.ok).toBe(false);
+    if (!read.ok) expect(read.error.code).toBe('not_found');
+
+    const update = await services.leads.update(foreign.id, { companyName: 'Cross-tenant update' }, fast);
+    expect(update.ok).toBe(false);
+    const remove = await services.leads.remove(foreign.id, fast);
+    expect(remove.ok).toBe(false);
+    const bulk = await services.leads.bulkRemove([foreign.id], fast);
+    expect(bulk.ok).toBe(true);
+    if (bulk.ok) expect(bulk.data).toMatchObject({ succeeded: 0, failed: 1 });
+
+    const tag = await services.leads.addTag([foreign.id], 'forbidden');
+    expect(tag.ok && tag.data.succeeded).toBe(0);
+    expect(db.state.leads[foreign.id]).toEqual(snapshot);
+  });
+
+  it('enforces the active organization on creates and protects tenant IDs on updates', async () => {
+    const db = freshDb();
+    const services = createMockServices({ db, persist: false });
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const [foreignId] = Object.keys(db.state.organizations).filter((id) => id !== activeId);
+    const existing = (await services.leads.list({ pageSize: 1 })).items[0]!;
+    const update = await services.leads.update(existing.id, { organizationId: foreignId } as never, fast);
+    expect(update.ok).toBe(true);
+    expect(db.state.leads[existing.id]!.organizationId).toBe(activeId);
+    // Bypass the facade type only to simulate an untrusted API payload.
+    const create = await services.leads.create({
+      ...existing,
+      id: undefined,
+      organizationId: foreignId,
+      companyName: 'Forged tenant ID',
+    } as never, fast);
+    expect(create.ok).toBe(true);
+    if (create.ok) expect(create.data.organizationId).toBe(activeId);
+  });
+
+  it('scopes ticket aggregates, policies, messages, and lifecycle writes', async () => {
+    const db = freshDb();
+    const services = createMockServices({ db, persist: false });
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const localTickets = Object.values(db.state.tickets).filter((ticket) => ticket.organizationId === activeId);
+    const foreign = Object.values(db.state.tickets).find((ticket) => ticket.organizationId !== activeId)!;
+    const snapshot = structuredClone(foreign);
+    const overview = await services.tickets.overview();
+    expect(overview.ok).toBe(true);
+    if (overview.ok) {
+      expect(overview.data.metrics.openTickets).toBe(
+        localTickets.filter((ticket) => !['resolved', 'closed'].includes(ticket.status)).length,
+      );
+    }
+    const policies = await services.tickets.slaPolicies();
+    expect(policies.items.every((policy) => policy.organizationId === activeId)).toBe(true);
+    const categories = await services.tickets.categories();
+    expect(categories.items.every((category) => category.organizationId === activeId)).toBe(true);
+    expect((await services.tickets.messages(foreign.id)).items).toEqual([]);
+    expect((await services.tickets.reply(foreign.id, 'Not allowed')).ok).toBe(false);
+    expect((await services.tickets.resolve(foreign.id, 'Not allowed', 'Not allowed')).ok).toBe(false);
+    expect((await services.tickets.reopen(foreign.id, 'Not allowed')).ok).toBe(false);
+    expect(db.state.tickets[foreign.id]).toEqual(snapshot);
+  });
+
+  it('rejects a cross-tenant merge without deleting any foreign records', async () => {
+    const db = freshDb();
+    const services = createMockServices({ db, persist: false });
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const local = Object.values(db.state.contacts).find((contact) => contact.organizationId === activeId)!;
+    const foreign = Object.values(db.state.contacts).find((contact) => contact.organizationId !== activeId)!;
+    const result = await services.contacts.merge(local.id, [foreign.id], {});
+    expect(result.ok).toBe(false);
+    expect(db.state.contacts[local.id]).toBeDefined();
+    expect(db.state.contacts[foreign.id]).toBeDefined();
   });
 });
