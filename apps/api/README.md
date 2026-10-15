@@ -25,6 +25,10 @@ The initial registration flow creates a **new tenant, organization and owner mem
 - `GET /api/v1/health`: public health status (no secrets)
 - `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`: browser session auth
 - `POST /api/v1/auth/verification-notification`, signed `GET /email/verify/{id}/{hash}`
+- `POST /api/v1/auth/forgot-password`, `POST /api/v1/auth/reset-password`: email recovery, hashed short-lived single-use tokens
+- `POST /api/v1/organizations/invitations`: owner/admin invitations (7-day expiry, hashed email-bound token)
+- `POST /api/v1/invitations/accept`: verified email recipient accepts an invitation once
+- `GET /api/v1/organizations/usage`, `GET /api/v1/organizations/audit`: owner/admin seat usage and organization audit events
 - `GET /api/v1/auth/me`: membership/organization list
 - `GET /api/v1/organizations/current`: authenticated, verified, scoped
 - `GET/POST /api/v1/leads`, `GET/PATCH/DELETE /api/v1/leads/{uuid}`: real database lead vertical slice, verified+scoped; updates require `expected_version`.
@@ -49,10 +53,12 @@ GitHub Actions runs PostgreSQL-backed feature tests; local DB test credentials c
 - All lead queries have a fail-closed global scope, including when a background job lacks an organization context.
 - POST/PATCH cannot choose or change `organization_id` or `tenant_id`.
 - Lead edits require optimistic concurrency version checks.
-- Schema uses UUIDs and tenant-inclusive indexes.
+- Schema uses UUIDs and tenant-inclusive indexes, including UUID polymorphic IDs in Sanctum.
+- Tenant seat limits are enforced on invitation acceptance using a tenant-level database row lock; an unset limit is deliberately unrestricted until billing.
+- Sensitive lead and invitation actions append organization-scoped audit events.
 
 ### Not implemented yet
 
-Full CRM HTTP contracts, frontend mock-to-HTTP adapter, role/permission matrices, invitations, password reset UX, rate-limited exports, advanced subscription gating, platform-owner console APIs, OAuth, billing, queue jobs, audit events, and production monitoring. Do not deploy as commercial SaaS before those gates are passed.
+Full CRM HTTP contracts, frontend mock-to-HTTP adapter, granular permissions/roles, invitation/registration UI, rate-limited exports, paid subscription entitlements, platform-owner console APIs, OAuth, billing, queue jobs, transactional audit writes on all lifecycle actions, recovery-session invalidation across devices, and production monitoring. Do not deploy as commercial SaaS before those gates are passed.
 
-**Dependency lockfile:** Phase 1 bootstraps Composer dependencies; a reproducible `composer.lock` must be committed before production deployment. See GitHub CI for fresh-install verification.
+**Reproducibility:** `apps/api/composer.lock` is committed, and the GitHub Actions Laravel job uses it for clean installs. Do not manually edit the generated lockfile.
