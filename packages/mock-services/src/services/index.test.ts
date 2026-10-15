@@ -1273,7 +1273,7 @@ describe('tenant ownership regression guards (phase 0)', () => {
     const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
     const local = Object.values(db.state.contacts).find((contact) => contact.organizationId === activeId)!;
     const foreign = Object.values(db.state.contacts).find((contact) => contact.organizationId !== activeId)!;
-    const result = await services.contacts.merge(local.id, [foreign.id]);
+    const result = await services.contacts.merge(local.id, [foreign.id], {});
     expect(result.ok).toBe(false);
     expect(db.state.contacts[local.id]).toBeDefined();
     expect(db.state.contacts[foreign.id]).toBeDefined();
