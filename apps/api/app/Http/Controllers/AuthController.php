@@ -99,6 +99,8 @@ final class AuthController
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        // Also drop any resolved Sanctum guard state in persistent/test runtimes.
+        Auth::forgetGuards();
 
         return response()->json(['ok' => true, 'data' => ['logged_out' => true]]);
     }
