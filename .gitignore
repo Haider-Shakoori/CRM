@@ -38,3 +38,14 @@ pnpm-debug.log*
 # local scratch
 .tmp/
 scratch/
+
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
