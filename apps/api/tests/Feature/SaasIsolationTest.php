@@ -89,6 +89,8 @@ class SaasIsolationTest extends TestCase
 
         $this->withHeader('X-Organization-ID', $orgB->id)
             ->getJson('/api/v1/leads')->assertNotFound();
+        $this->withHeader('X-Organization-ID', 'not-a-uuid')
+            ->getJson('/api/v1/leads')->assertNotFound();
 
         $orgB->tenant->update(['status' => 'suspended']);
         $this->withHeader('X-Organization-ID', $orgA->id)
@@ -113,6 +115,7 @@ class SaasIsolationTest extends TestCase
             ->assertJsonPath('data.items.0.id', $local->id);
 
         $this->getJson('/api/v1/leads/'.$foreign->id)->assertNotFound();
+        $this->getJson('/api/v1/leads/not-a-uuid')->assertNotFound();
         $this->patchJson('/api/v1/leads/'.$foreign->id, [
             'name' => 'Stolen', 'expected_version' => 1,
         ])->assertNotFound();
