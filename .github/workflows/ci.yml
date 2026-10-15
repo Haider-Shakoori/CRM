@@ -102,10 +102,17 @@ jobs:
         run: composer validate --no-check-publish
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+      # Temporary diagnostic: capture the generated dependency lockfile so it can
+      # be committed through the GitHub connector before this step is removed.
+      - name: Export Composer lock manifest
+        run: |
+          echo CRM_LOCK_BEGIN
+          base64 -w0 composer.lock | fold -w 4000
+          echo CRM_LOCK_END
       - name: PHP syntax lint
         run: |
           find app bootstrap config database routes tests -type f -name '*.php' -print0 | xargs -0 -n 1 php -l
       - name: Fresh PostgreSQL migration
         run: php artisan migrate:fresh --force
       - name: Tenant isolation and auth feature tests
-        run: php artisan test --colors=never
+        run: php artisan test --colors=never --display-warnings
