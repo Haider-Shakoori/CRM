@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Password as PasswordBroker;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
@@ -119,7 +119,7 @@ final class AuthController
     {
         $data = $request->validate(['email' => ['required', 'email:rfc', 'max:254']]);
         // Never reveal whether an account exists.
-        Password::broker()->sendResetLink(['email' => Str::lower(trim($data['email']))]);
+        PasswordBroker::broker()->sendResetLink(['email' => Str::lower(trim($data['email']))]);
         return response()->json(['ok' => true, 'data' => [
             'message' => 'If this email has an account, recovery instructions will be sent.',
         ]], 202);
@@ -133,7 +133,7 @@ final class AuthController
             'password' => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::min(12)->letters()->numbers()],
         ]);
         $data['email'] = Str::lower(trim($data['email']));
-        $status = Password::broker()->reset($data, function (User $user, string $password): void {
+        $status = PasswordBroker::broker()->reset($data, function (User $user, string $password): void {
             $user->forceFill([
                 'password' => $password,
                 'remember_token' => Str::random(60),
@@ -142,7 +142,7 @@ final class AuthController
             event(new PasswordReset($user));
         });
 
-        if ($status !== Password::PASSWORD_RESET) {
+        if ($status !== PasswordBroker::PASSWORD_RESET) {
             return response()->json(['ok' => false, 'error' => [
                 'code' => 'validation_failed',
                 'message' => 'The password recovery token is invalid or expired.',
