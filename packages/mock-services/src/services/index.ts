@@ -1812,7 +1812,8 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
                     : source === 'subscriptions' ? (database.all('revenueSubscriptions') as unknown as Array<Record<string, unknown>>)
                       : source === 'goals' ? (database.all('salesGoals') as unknown as Array<Record<string, unknown>>)
                         : source === 'renewals' ? (database.all('renewals') as unknown as Array<Record<string, unknown>>)
-                          : [];
+                          : []
+    ).filter((record) => record.organizationId === currentOrganizationId());
 
     const readNumber = (record: Record<string, unknown>, path: string): number => {
       const segments = path.split('.');
@@ -1926,7 +1927,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
   function executeReport(database: MockDb, report: import('@crm/shared-types').ReportDefinition): import('@crm/shared-types').ReportResult {
     const source = report.source;
-    const records: Array<Record<string, unknown>> =
+    const records: Array<Record<string, unknown>> (
       source === 'deals' ? (database.all('deals') as unknown as Array<Record<string, unknown>>)
         : source === 'leads' ? (database.all('leads') as unknown as Array<Record<string, unknown>>)
           : source === 'contacts' ? (database.all('contacts') as unknown as Array<Record<string, unknown>>)
