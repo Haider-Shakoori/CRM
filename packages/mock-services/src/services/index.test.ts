@@ -572,7 +572,8 @@ describe('read services', () => {
     expect(overview.ok).toBe(true);
     if (!overview.ok) return;
 
-    const tickets = Object.values(db.state.tickets);
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const tickets = Object.values(db.state.tickets).filter((ticket) => ticket.organizationId === activeId);
     const open = tickets.filter((ticket) => !['resolved', 'closed'].includes(ticket.status));
     expect(overview.data.metrics.openTickets).toBe(open.length);
     // Status buckets must account for every ticket exactly once.
@@ -768,7 +769,8 @@ describe('account hierarchy walk', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const accounts = Object.values(db.state.accounts);
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const accounts = Object.values(db.state.accounts).filter((account) => account.organizationId === activeId);
     expect(result.data).toHaveLength(accounts.length);
     for (const node of result.data) {
       expect(node.id).not.toBe(node.parentId);
@@ -1105,10 +1107,9 @@ describe('support, knowledge base and conversations', () => {
     expect(overview.ok).toBe(true);
     if (!overview.ok) return;
 
-    // Note: the support overview aggregates every seeded ticket, across tenants, because the
-    // mock service reads the ticket collection directly. The assertion records that behaviour
-    // rather than pretending the overview is tenant-scoped.
-    const open = Object.values(db.state.tickets).filter((ticket) => !['resolved', 'closed'].includes(ticket.status)).length;
+    // Only the active organization's tickets contribute to the support overview.
+    const activeId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const open = Object.values(db.state.tickets).filter((ticket) => ticket.organizationId === activeId && !['resolved', 'closed'].includes(ticket.status)).length;
     expect(overview.data.metrics.openTickets).toBe(open);
     expect(overview.data.byStatus.length).toBeGreaterThan(0);
   });
