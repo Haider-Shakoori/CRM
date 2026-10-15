@@ -6,6 +6,7 @@ use App\Models\OrganizationMembership;
 use App\Support\OrganizationContext;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ResolveOrganization
@@ -19,6 +20,12 @@ final class ResolveOrganization
                 'ok' => false,
                 'error' => ['code' => 'validation_failed', 'message' => 'Select an organization.', 'retryable' => false],
             ], 400);
+        }
+
+        if (!Str::isUuid($id)) {
+            return response()->json(['ok' => false, 'error' => [
+                'code' => 'not_found', 'message' => 'Organization unavailable.', 'retryable' => false,
+            ]], 404);
         }
 
         // Ignore any client-supplied tenant ID; only a verified active membership can resolve context.
