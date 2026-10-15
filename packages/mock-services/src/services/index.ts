@@ -1801,7 +1801,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
   function resolveWidgetData(database: MockDb, widget: import('@crm/shared-types').DashboardWidget): import('@crm/shared-types').WidgetData {
     const source = widget.binding.source;
-    const records: Array<Record<string, unknown>> =
+    const records: Array<Record<string, unknown>> = (
       source === 'deals' ? (database.all('deals') as unknown as Array<Record<string, unknown>>)
         : source === 'leads' ? (database.all('leads') as unknown as Array<Record<string, unknown>>)
           : source === 'contacts' ? (database.all('contacts') as unknown as Array<Record<string, unknown>>)
@@ -1935,7 +1935,8 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
                 : source === 'tickets' ? (database.all('tickets') as unknown as Array<Record<string, unknown>>)
                   : source === 'campaigns' ? (database.all('campaigns') as unknown as Array<Record<string, unknown>>)
                     : source === 'renewals' ? (database.all('renewals') as unknown as Array<Record<string, unknown>>)
-                      : (database.all('revenueSubscriptions') as unknown as Array<Record<string, unknown>>);.filter((record) => record.organizationId === currentOrganizationId())
+                      : (database.all('revenueSubscriptions') as unknown as Array<Record<string, unknown>>)
+    ).filter((record) => record.organizationId === currentOrganizationId());
 
     const groupField = report.config.groupBy[0]?.field ?? 'stageId';
     const measureField = report.config.measure.field;
