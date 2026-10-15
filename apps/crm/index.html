@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>CRM Platform</title>
+    <meta
+      name="description"
+      content="Multi-tenant CRM application. Frontend demonstration build with synthetic data."
+    />
+    <!--
+      The application is not a public surface. It is excluded from search engines in
+      robots.txt as well, so this is a second line of defence rather than the only one.
+    -->
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/brand/favicon.svg" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#6d4aff" />
+
+    <!--
+      Resolve theme, density and contrast before first paint. Without this the shell would
+      flash the light theme for a dark-mode user, which on a dense application is far more
+      jarring than on a marketing page.
+    -->
+    <script>
+      (() => {
+        try {
+          const stored = localStorage.getItem('crm.ui.preferences');
+          const prefs = stored ? JSON.parse(stored) : {};
+          const theme = prefs.theme ?? 'system';
+          const resolved =
+            theme === 'system'
+              ? matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+              : theme;
+          const root = document.documentElement;
+          root.setAttribute('data-theme', resolved);
+          root.setAttribute('data-density', prefs.density ?? 'comfortable');
+          root.setAttribute('data-contrast', prefs.contrast ?? 'default');
+          if (prefs.reducedMotion) root.setAttribute('data-reduced-motion', 'true');
+          if (prefs.accent) root.setAttribute('data-accent', prefs.accent);
+          const locale = prefs.locale ?? 'en';
+          root.setAttribute('lang', locale);
+          root.setAttribute('dir', locale.startsWith('ar') || locale.startsWith('fa') || locale.startsWith('ps') ? 'rtl' : 'ltr');
+        } catch {
+          /* no stored preference: the defaults stand */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <div style="padding: 2rem; font-family: system-ui, sans-serif">
+        <h1 style="font-size: 1.125rem; margin: 0 0 0.5rem">CRM Platform</h1>
+        <p style="margin: 0; color: #555">
+          This application requires JavaScript. It is a frontend demonstration build: all data
+          is synthetic and no backend is connected.
+        </p>
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

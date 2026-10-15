@@ -1,0 +1,114 @@
+---
+/**
+ * 404 handler.
+ *
+ * A 404 is a navigation problem, so the page is built to solve it: relevant
+ * destinations, a search affordance into the documentation, and an honest statement
+ * that the route genuinely does not exist rather than an apology with no next step.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { productPages, featurePages, featuredIndustries } from '@crm/configuration';
+import { Compass, Search } from 'lucide-react';
+
+const suggestions = [
+  { group: 'Most visited', links: [
+    { label: 'CRM overview', href: '/product' },
+    { label: 'Pricing', href: '/pricing' },
+    { label: 'Interactive demo', href: '/demo' },
+    { label: 'Integrations', href: '/integrations' },
+  ]},
+  { group: 'Getting started', links: [
+    { label: 'Start free trial', href: '/signup' },
+    { label: 'Sign in', href: '/signin' },
+    { label: 'Help centre', href: '/resources/help-center' },
+    { label: 'Documentation', href: '/docs' },
+  ]},
+  { group: 'Product areas', links: productPages.slice(1, 6).map((page) => ({ label: page.title, href: `/product/${page.slug}` })) },
+  { group: 'Popular features', links: featurePages.slice(0, 5).map((page) => ({ label: page.title, href: `/features/${page.slug}` })) },
+];
+---
+
+<BaseLayout
+  title="Page not found"
+  description="The page you were looking for does not exist. Try one of the destinations below, or search the documentation."
+  noindex
+>
+  <div class="mx-auto w-full max-w-[var(--container-content)] px-4 py-20 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <p class="flex items-center gap-2 text-2xs font-semibold uppercase tracking-[0.14em] text-brand-fg">
+        <Compass className="size-3.5" aria-hidden="true" />
+        Error 404
+      </p>
+      <h1 class="mt-4 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
+        That page does not exist
+      </h1>
+      <p class="mt-4 text-sm leading-relaxed text-muted">
+        The link may be out of date, or the page may have moved. Nothing is broken on your side — and unlike some
+        error pages, this one will not pretend the route exists.
+      </p>
+
+      <!-- Documentation search is a plain form so it works without JavaScript. -->
+      <form action="/resources/help-center" method="get" role="search" class="mt-7 flex max-w-md gap-2">
+        <label for="site-search" class="sr-only">Search help and documentation</label>
+        <div class="relative flex-1">
+          <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-subtle" aria-hidden="true" />
+          <input
+            id="site-search"
+            type="search"
+            name="q"
+            placeholder="Search help and documentation"
+            class="h-10 w-full rounded-lg border border-border bg-surface ps-9 pe-3 text-sm text-fg placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-ring/25"
+          />
+        </div>
+        <button
+          type="submit"
+          class="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-brand-contrast transition-colors hover:bg-brand-hover"
+        >
+          Search
+        </button>
+      </form>
+    </div>
+
+    <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        suggestions.map((column) => (
+          <div>
+            <h2 class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">{column.group}</h2>
+            <ul class="space-y-1.5">
+              {column.links.map((link) => (
+                <li>
+                  <a href={link.href} class="text-xs text-muted transition-colors hover:text-fg hover:underline hover:underline-offset-2">
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="mt-12 border-t border-border-subtle pt-6">
+      <h2 class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">Or browse by industry</h2>
+      <ul class="flex flex-wrap gap-2">
+        {
+          featuredIndustries.map((industry) => (
+            <li>
+              <a
+                href={`/industries/${industry.id.replace(/_/g, '-')}`}
+                class="inline-flex items-center rounded-full border border-border-subtle bg-surface px-3 py-1 text-2xs text-muted transition-colors hover:border-border-strong hover:text-fg"
+              >
+                {industry.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <p class="mt-12 text-2xs text-faint">
+      If you followed a link from within this site, that is a bug worth fixing. Route coverage is part of the build
+      verification for this project.
+    </p>
+  </div>
+</BaseLayout>

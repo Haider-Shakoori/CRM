@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="CRM Platform mark (placeholder)">
+  <defs>
+    <linearGradient id="mk" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6d4aff"/>
+      <stop offset="100%" stop-color="#0e7c86"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#mk)"/>
+  <path d="M9 21.5c0-3 2.4-5.4 5.4-5.4h3.2c1.8 0 3.2-1.4 3.2-3.2S19.4 9.7 17.6 9.7h-4.8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="22.6" cy="21.6" r="2.6" fill="#fff"/>
+  <circle cx="10.2" cy="9.6" r="2.2" fill="#fff" opacity="0.85"/>
+</svg>

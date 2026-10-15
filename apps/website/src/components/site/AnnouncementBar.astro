@@ -1,0 +1,72 @@
+---
+/**
+ * Dismissible announcement banner.
+ *
+ * The message and target come from `@crm/configuration` so marketing copy is never
+ * hardcoded in a component. Dismissal is remembered in localStorage; the banner is
+ * rendered in HTML so it is present without JavaScript (the close button simply is not
+ * functional until hydration, which is an acceptable degradation for a promotion).
+ */
+import { brandConfig } from '@crm/configuration';
+
+const banner = brandConfig.website.announcementBanner;
+const toneClasses: Record<string, string> = {
+  brand: 'bg-brand text-brand-contrast',
+  info: 'bg-info-subtle text-info-fg',
+  accent: 'bg-tone-amber-bg text-tone-amber',
+};
+---
+
+{
+  banner?.enabled ? (
+    <div
+      id="announcement-bar"
+      class={`relative hidden w-full items-center justify-center gap-3 px-4 py-2 text-center text-xs sm:flex ${toneClasses[banner.tone]}`}
+      role="region"
+      aria-label="Announcement"
+    >
+      <p class="min-w-0">
+        {banner.message}
+        <a href={banner.href} class="ms-2 font-semibold underline underline-offset-2 hover:no-underline">
+          {banner.ctaLabel}
+        </a>
+      </p>
+      {banner.dismissible ? (
+        <button
+          type="button"
+          data-dismiss-announcement
+          class="absolute end-2 rounded p-1 opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-2"
+          aria-label="Dismiss announcement"
+        >
+          <svg viewBox="0 0 16 16" class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+            <path d="M4 4l8 8M12 4l-8 8" stroke-linecap="round" />
+          </svg>
+        </button>
+      ) : null}
+    </div>
+  ) : null
+}
+
+<script is:inline>
+  // Runs before paint to avoid a visible collapse after hydration.
+  (() => {
+    const bar = document.getElementById('announcement-bar');
+    if (!bar) return;
+    try {
+      if (localStorage.getItem('crm.website.announcement.dismissed') === 'true') {
+        bar.remove();
+        return;
+      }
+    } catch {
+      /* storage unavailable — show the banner */
+    }
+    bar.querySelector('[data-dismiss-announcement]')?.addEventListener('click', () => {
+      try {
+        localStorage.setItem('crm.website.announcement.dismissed', 'true');
+      } catch {
+        /* ignore */
+      }
+      bar.remove();
+    });
+  })();
+</script>

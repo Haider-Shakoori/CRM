@@ -1,0 +1,18 @@
+{
+  "name": "@crm/mock-services",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed mock service layer + synthetic seed data. Replaced by the Laravel REST API in production.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@crm/configuration": "*",
+    "@crm/shared-types": "*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

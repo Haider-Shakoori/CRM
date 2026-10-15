@@ -1,0 +1,165 @@
+---
+/**
+ * Base document layout for the public website.
+ *
+ * Responsibilities:
+ *  - the full SEO head (title, description, canonical, Open Graph, Twitter, hreflang,
+ *    JSON-LD) using `@crm/configuration` branding so nothing is hardcoded
+ *  - skip link, landmark structure and a single `main` element
+ *  - theme initialisation *before* first paint so there is no flash of the wrong theme
+ *  - optional noindex for placeholder and post-auth screens
+ */
+import '@/styles/global.css';
+import { brandConfig, pageTitle } from '@crm/configuration';
+import AnnouncementBar from '@/components/site/AnnouncementBar.astro';
+import SiteHeader from '@/components/site/SiteHeader.astro';
+import SiteFooter from '@/components/site/SiteFooter.astro';
+
+export interface Props {
+  title?: string;
+  description?: string;
+  /** Appended to the canonical URL. Defaults to the current path. */
+  canonicalPath?: string;
+  /** Keep placeholder and post-authentication pages out of search results. */
+  noindex?: boolean;
+  /** Renders the announcement bar; disabled on focused flows like signup. */
+  announcement?: boolean;
+  /** Hides site chrome for standalone flows. */
+  minimal?: boolean;
+  /** Structured data. Omitted entirely rather than emitting invented review data. */
+  jsonLd?: Record<string, unknown> | null;
+  ogType?: 'website' | 'article';
+  /** Breadcrumb trail for `BreadcrumbList` markup and visible navigation. */
+  breadcrumbs?: Array<{ label: string; href?: string }>;
+}
+
+const {
+  title,
+  description = brandConfig.productDescription,
+  canonicalPath,
+  noindex = false,
+  announcement = true,
+  minimal = false,
+  jsonLd = null,
+  ogType = 'website',
+  breadcrumbs = [],
+} = Astro.props;
+
+const siteUrl = (import.meta.env.PUBLIC_SITE_URL ?? Astro.site?.toString() ?? brandConfig.website.canonicalBaseUrl).replace(/\/$/, '');
+const path = canonicalPath ?? Astro.url.pathname;
+const canonical = `${siteUrl}${path === '/' ? '' : path.replace(/\/$/, '')}`;
+const fullTitle = pageTitle(title);
+const ogImage = `${siteUrl}${brandConfig.assets.socialShareImage.src}`;
+
+const organizationLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: brandConfig.productDisplayName,
+  url: siteUrl,
+  logo: `${siteUrl}${brandConfig.assets.logoMark.src}`,
+  description: brandConfig.productSummary,
+  // No address, founding date, employee count or social profile is emitted because none
+  // has been decided. Inventing them would be worse than omitting them.
+};
+
+const breadcrumbLd =
+  breadcrumbs.length > 0
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: breadcrumbs.map((crumb, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: crumb.label,
+          ...(crumb.href ? { item: `${siteUrl}${crumb.href}` } : {}),
+        })),
+      }
+    : null;
+---
+
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex ? <meta name="robots" content="noindex, nofollow" /> : <meta name="robots" content="index, follow, max-image-preview:large" />}
+
+    <link rel="icon" type="image/svg+xml" href={brandConfig.assets.favicon.src} />
+    <link rel="apple-touch-icon" href={brandConfig.assets.appleTouchIcon.src} />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#6d4aff" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={brandConfig.productDisplayName} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:alt" content={`${brandConfig.productDisplayName} social sharing image placeholder`} />
+    <meta property="og:locale" content="en" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!--
+      hreflang. Only locales actually enabled for the website are advertised, and only
+      English is complete, so the others declare their own completeness in the locale
+      catalogue rather than being presented as fully translated.
+    -->
+    <link rel="alternate" hreflang="x-default" href={canonical} />
+    <link rel="alternate" hreflang="en" href={canonical} />
+    <link rel="alternate" hreflang="ar" href={`${siteUrl}/ar${path === '/' ? '' : path}`} />
+    <link rel="alternate" hreflang="es" href={`${siteUrl}/es${path === '/' ? '' : path}`} />
+
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(organizationLd)} />
+    {breadcrumbLd ? <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} /> : null}
+    {jsonLd ? <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} /> : null}
+
+    <!--
+      Resolve the theme before first paint. Without this the page would flash the light
+      theme for users whose preference is dark. Kept tiny and inline on purpose.
+    -->
+    <script is:inline>
+      (() => {
+        try {
+          const stored = localStorage.getItem('crm.ui.preferences');
+          const prefs = stored ? JSON.parse(stored) : {};
+          const theme = prefs.theme ?? 'system';
+          const resolved = theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
+          document.documentElement.setAttribute('data-theme', resolved);
+          if (prefs.density) document.documentElement.setAttribute('data-density', prefs.density);
+          if (prefs.contrast) document.documentElement.setAttribute('data-contrast', prefs.contrast);
+          if (prefs.reducedMotion) document.documentElement.setAttribute('data-reduced-motion', 'true');
+          if (prefs.accent) document.documentElement.setAttribute('data-accent', prefs.accent);
+        } catch {
+          /* no stored preference — the light default stands */
+        }
+      })();
+    </script>
+  </head>
+
+  <body class="min-h-dvh bg-canvas antialiased">
+    <a
+      href="#main"
+      class="absolute left-4 top-4 z-[100] -translate-y-24 rounded-md bg-brand px-4 py-2 text-sm font-medium text-brand-contrast transition-transform focus:translate-y-0"
+    >
+      Skip to main content
+    </a>
+
+    {announcement ? <AnnouncementBar /> : null}
+    {!minimal ? <SiteHeader /> : null}
+
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+
+    {!minimal ? <SiteFooter /> : null}
+  </body>
+</html>

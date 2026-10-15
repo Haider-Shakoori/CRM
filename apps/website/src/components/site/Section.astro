@@ -1,0 +1,97 @@
+---
+/**
+ * Marketing section wrapper.
+ *
+ * Provides the rhythm every homepage and landing-page section shares: container width,
+ * vertical spacing that tightens on small screens, an optional eyebrow heading and a
+ * consistent heading level. The heading level is a prop because section order differs
+ * between pages and heading hierarchy must stay logical for assistive technology.
+ */
+export interface Props {
+  id?: string;
+  eyebrow?: string;
+  title?: string;
+  body?: string;
+  /** Heading element to render for the section title. */
+  as?: 'h2' | 'h3';
+  align?: 'start' | 'center';
+  width?: 'content' | 'wide' | 'full';
+  /** Removes the top border used to separate adjacent sections. */
+  borderless?: boolean;
+  /** Tighter vertical padding for dense sections. */
+  dense?: boolean;
+  /** Rendered to the right of, or beneath, the heading. */
+  actions?: { label: string; href: string; variant?: 'primary' | 'secondary' | 'ghost' }[];
+  className?: string;
+}
+
+const {
+  id,
+  eyebrow,
+  title,
+  body,
+  as = 'h2',
+  align = 'start',
+  width = 'wide',
+  borderless = false,
+  dense = false,
+  actions = [],
+  className = '',
+} = Astro.props;
+
+const widths = {
+  content: 'max-w-[var(--container-content)]',
+  wide: 'max-w-[var(--container-wide)]',
+  full: 'max-w-[var(--w-full)]',
+};
+
+const alignClasses = align === 'center' ? 'items-center text-center' : 'items-start';
+
+const buttonClass = (variant: string) =>
+  variant === 'primary'
+    ? 'inline-flex h-9 items-center rounded-md bg-brand px-4 text-sm font-medium text-brand-contrast shadow-xs transition-colors hover:bg-brand-hover'
+    : variant === 'ghost'
+      ? 'inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-fg'
+      : 'inline-flex h-9 items-center rounded-md border border-border bg-surface px-4 text-sm font-medium text-fg shadow-xs transition-colors hover:bg-hover';
+
+/** Astro renders a component named from a variable directly, so the heading level stays a prop. */
+const Heading = as;
+---
+
+<section
+  id={id}
+  class:list={[
+    'relative w-full',
+    dense ? 'py-12 sm:py-14' : 'py-16 sm:py-20',
+    !borderless && 'border-t border-border-subtle',
+    className,
+  ]}
+>
+  <div class:list={['mx-auto w-full px-4 sm:px-6 lg:px-8', widths[width]]}>
+    {
+      title || eyebrow || body ? (
+        <div class:list={['flex flex-col gap-4 pb-8 sm:pb-10', alignClasses]}>
+          {eyebrow ? (
+            <p class="text-2xs font-semibold uppercase tracking-[0.14em] text-brand-fg">{eyebrow}</p>
+          ) : null}
+          {title ? (
+            <Heading class="max-w-3xl text-2xl font-semibold tracking-tight text-fg sm:text-3xl">{title}</Heading>
+          ) : null}
+          {body ? <p class="max-w-2xl text-sm leading-relaxed text-muted sm:text-[0.9375rem]">{body}</p> : null}
+          {
+            actions.length > 0 ? (
+              <div class="flex flex-wrap gap-2 pt-1">
+                {actions.map((action) => (
+                  <a href={action.href} class={buttonClass(action.variant ?? 'secondary')}>
+                    {action.label}
+                  </a>
+                ))}
+              </div>
+            ) : null
+          }
+        </div>
+      ) : null
+    }
+    <slot />
+  </div>
+</section>

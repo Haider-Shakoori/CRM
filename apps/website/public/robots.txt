@@ -1,0 +1,34 @@
+# robots.txt for the public website.
+#
+# The production domain is a placeholder until the final product name and domain are
+# decided. Replace `Sitemap:` with the real host before launch.
+#
+# Policy notes:
+#  - The marketing site is fully crawlable.
+#  - The frontend demonstration routes under /app, /platform and /portal are excluded:
+#    they are not a real application, contain no unique content, and must never rank.
+#  - Post-authentication screens are excluded because they are simulations.
+#  - Trust and legal pages are crawlable so they can be found and reviewed, but each
+#    carries a visible "pending legal review" notice.
+
+User-agent: *
+Allow: /
+
+# Simulated application surfaces
+Disallow: /app
+Disallow: /app/
+Disallow: /platform
+Disallow: /platform/
+Disallow: /portal
+Disallow: /portal/
+
+# Simulated authentication flows
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /accept-invitation
+Disallow: /forgot-password
+
+# Placeholder pages that are marked noindex and are still in development
+Disallow: /customers
+
+Sitemap: https://example-crm.test/sitemap-index.xml

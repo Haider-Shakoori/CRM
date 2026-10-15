@@ -1,0 +1,14 @@
+{
+  "name": "@crm/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed domain contracts for every CRM entity, shared by the website, CRM app and platform admin.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

@@ -1,0 +1,120 @@
+@import 'tailwindcss';
+@import '@crm/design-tokens/tokens.css';
+
+/*
+ * Source scanning for the shared UI package.
+ *
+ * Tailwind's automatic detection ignores node_modules, and workspace packages resolve
+ * through symlinks there, so the UI library must be declared explicitly. Without this the
+ * build succeeds and every shared component renders unstyled — the first thing to check if
+ * the application looks wrong.
+ */
+@source '../../../packages/ui/src';
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border-subtle);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    /* The application manages its own scroll containers, so avoid double scroll behaviour. */
+    overscroll-behavior: none;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--surface-canvas);
+    color: var(--fg);
+    font-family: var(--font-family-sans);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-family-display);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Replace the default outline with the design-system ring rather than removing it. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--brand-200);
+    color: var(--neutral-900);
+  }
+
+  /* Arabic, Dari and Pashto need a script-appropriate face before the Latin fallback. */
+  [lang='ar'],
+  [lang='fa-AF'],
+  [lang='ps'],
+  [dir='rtl'] {
+    font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, var(--font-family-sans);
+  }
+
+  [lang='hi'] {
+    font-family: 'Noto Sans Devanagari', var(--font-family-sans);
+  }
+}
+
+/* Compact, unobtrusive scrollbars so dense views are not dominated by chrome. */
+@layer utilities {
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 9999px;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-thumb:hover {
+    background-color: var(--border-strong);
+  }
+
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/*
+ * The demonstration banner is deliberately persistent and non-dismissible. A reviewer should
+ * never be able to forget that no backend is connected.
+ */
+@utility demo-stripe {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--surface-warning-subtle),
+    var(--surface-warning-subtle) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+}

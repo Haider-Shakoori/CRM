@@ -1,0 +1,17 @@
+{
+  "name": "@crm/configuration",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Central branding, plan/pricing, module registry, industry template and locale configuration.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@crm/shared-types": "*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

@@ -1,0 +1,312 @@
+---
+/**
+ * Honest in-development route.
+ *
+ * Every route the information architecture defines but which has not yet been
+ * implemented renders through this page. It is deliberately:
+ *   - **noindex**, because an unfinished page must never compete in search results
+ *   - **clearly labelled**, because the brief forbids presenting a placeholder as a
+ *     completed screen
+ *   - **useful**, because it states what the page will contain and links onward, rather
+ *     than showing an empty shell or a dead end
+ *
+ * `getStaticPaths` enumerates the routes from `@crm/configuration`, so the public sitemap,
+ * the navigation and this page can never disagree about which URLs exist.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import {
+  productPages,
+  featurePages,
+  industries,
+  legalPagesRequiringReview,
+  brandConfig,
+} from '@crm/configuration';
+import { ArrowRight, Construction, FileText, ShieldAlert } from 'lucide-react';
+
+export function getStaticPaths() {
+  const routes: Array<{ params: { slug: string }; props: Record<string, unknown> }> = [];
+
+  const add = (path: string, props: Record<string, unknown>) =>
+    routes.push({ params: { slug: path }, props });
+
+  // Section index pages
+  add('product', { kind: 'product', title: 'CRM platform overview', summary: 'Every capability the platform covers, grouped by function.', audience: 'Everyone evaluating the platform' });
+  add('features', { kind: 'feature', title: 'All features', summary: 'Nineteen capability pages covering the whole product surface.' });
+  add('industries', { kind: 'industry', title: 'Industry solutions', summary: 'Twenty-one configurable industry profiles, each with sample objects, pipelines and workflows.' });
+  add('solutions', { kind: 'solution', title: 'Solutions', summary: 'How the platform adapts by business size, team and process.' });
+  add('resources', { kind: 'resource', title: 'Resources', summary: 'Guides, tutorials, webinars, templates, help centre and documentation.' });
+
+  // Product landing pages
+  productPages.forEach((page) => {
+    if (!page.slug) return; // `/product` itself remains a dedicated route
+    add(`product/${page.slug}`, {
+      kind: 'product',
+      title: page.title,
+      summary: page.summary,
+      audience: page.audience,
+    });
+  });
+
+  // Feature pages
+  featurePages.forEach((page) => {
+    add(`features/${page.slug}`, { kind: 'feature', title: page.title, summary: page.summary });
+  });
+
+  // Industry pages — the compliance posture differs for regulated verticals
+  industries.forEach((industry) => {
+    add(`industries/${industry.id.replace(/_/g, '-')}`, {
+      kind: 'industry',
+      title: industry.label,
+      summary: industry.description,
+      complianceNote: industry.complianceNote,
+      requiresDisclaimer: industry.regulatoryDisclaimerRequired,
+      industry,
+    });
+  });
+
+  // Solutions pages
+  const solutions: Array<[string, string, string]> = [
+    ['individuals', 'Individuals & freelancers', 'A single-user CRM that is genuinely worth using on its own.'],
+    ['startups', 'Startups', 'Move fast without re-platforming as the team doubles every quarter.'],
+    ['small-business', 'Small business', 'Replace the spreadsheet and the shared inbox in one move.'],
+    ['mid-market', 'Mid-market', 'Process discipline and automation without a consultant-led rollout.'],
+    ['enterprise', 'Enterprise', 'Governance, identity and audit surfaces for large organisations.'],
+    ['international', 'International organisations', 'Multi-language, multi-currency and multi-region by configuration.'],
+    ['sales-teams', 'Sales teams', 'Pipeline, sequences, forecasting and a daily plan that fills itself.'],
+    ['marketing-teams', 'Marketing teams', 'Segments, journeys and attribution reconciled against real deals.'],
+    ['support-teams', 'Support teams', 'Queues, SLAs, escalation and a knowledge base that is actually used.'],
+    ['customer-success-teams', 'Customer success teams', 'Health, onboarding, renewals and churn risk in one portfolio view.'],
+    ['field-sales', 'Field sales teams', 'Territories, visit plans and coverage analysis for teams on the road.'],
+    ['revenue-operations', 'Revenue operations', 'One consistent definition of pipeline, forecast and recurring revenue.'],
+    ['b2b', 'B2B sales', 'Committee-based buying, long cycles and multi-threaded relationships.'],
+    ['b2c', 'B2C and high volume', 'Volume records, fast response targets and consent-aware outreach.'],
+    ['subscription-business', 'Subscription business', 'Recurring revenue, expansion, contraction and retention analysis.'],
+    ['partner-sales', 'Channel and partner sales', 'Deal registration, conflict checking and commission statements.'],
+    ['project-delivery', 'Project-based delivery', 'Hand a signed deal straight into a delivery plan.'],
+    ['migration', 'Migrate from another CRM', 'Import mapping, validation before commit and duplicate handling.'],
+  ];
+  solutions.forEach(([slug, title, summary]) => add(`solutions/${slug}`, { kind: 'solution', title, summary }));
+
+  // Resource pages
+  const resources: Array<[string, string, string]> = [
+    ['guides', 'CRM guides', 'Practical guides on pipeline hygiene, forecasting and data quality.'],
+    ['tutorials', 'Product tutorials', 'Task-based walkthroughs of individual workflows.'],
+    ['webinars', 'Webinars', 'Recorded sessions, each clearly labelled as sample content.'],
+    ['library', 'Resource library', 'Templates, checklists and calculators.'],
+    ['help-center', 'Help centre', 'Searchable answers for administrators and end users.'],
+  ];
+  resources.forEach(([slug, title, summary]) => add(`resources/${slug}`, { kind: 'resource', title, summary }));
+
+  // Company pages — placeholder content is declared rather than implied
+  const company: Array<[string, string, string]> = [
+    ['about', 'About', 'What this platform is being built to do, and how it is being built.'],
+    ['contact', 'Contact', 'Ways to reach the team, including the sales and support routes.'],
+    ['careers', 'Careers', 'Roles we would hire for. No listing here represents a real open position.'],
+    ['partnerships', 'Partnerships', 'Technology, implementation and reseller partnership models.'],
+    ['become-a-partner', 'Become a partner', 'Programme tiers, requirements and the application flow.'],
+    ['affiliate', 'Affiliate programme', 'Referral tracking and commission presentation.'],
+    ['press', 'Press', 'Brand assets, fact sheet and media contact. No coverage is claimed.'],
+    ['brand-assets', 'Brand assets', 'Logos, colour tokens and usage guidance — placeholders until the identity is finalised.'],
+  ];
+  company.forEach(([slug, title, summary]) => add(`company/${slug}`, { kind: 'company', title, summary }));
+
+  // Legal and trust pages carry an explicit pending-review flag
+  const legal: Array<[string, string, string, boolean]> = [
+    ['legal/privacy', 'Privacy policy', 'What is collected, why, how long it is kept and how to exercise your rights.', true],
+    ['legal/terms', 'Terms of service', 'The agreement covering use of the platform.', true],
+    ['legal/cookies', 'Cookie policy', 'Which cookies are used, their purpose and their lifetime.', true],
+    ['legal/cookie-preferences', 'Cookie preferences', 'Granular consent controls for optional cookie categories.', false],
+    ['legal/dpa', 'Data processing agreement', 'Processor obligations, sub-processors and international transfers.', true],
+    ['legal/sla', 'Service level agreement', 'Support response targets and escalation path.', true],
+    ['legal/acceptable-use', 'Acceptable use policy', 'What may and may not be done with the platform.', true],
+    ['trust', 'Trust centre', 'Security, privacy and compliance surfaces in one place.', false],
+    ['trust/security', 'Security overview', 'Encryption, access control and operational practices as designed.', false],
+    ['trust/compliance', 'Compliance overview', 'Which frameworks are being designed for. No certification is claimed.', false],
+    ['trust/subprocessors', 'Subprocessors', 'Categories of subprocessor and the notification process.', false],
+    ['trust/data-residency', 'Data residency', 'Regions presented as a product option. No guarantee is made here.', false],
+    ['trust/status', 'Service status', 'Component status presentation. No monitoring system is connected.', false],
+  ];
+  legal.forEach(([path, title, summary, requiresReview]) =>
+    add(path, { kind: 'legal', title, summary, requiresReview }),
+  );
+
+  // Integrations, developers, editorial and remaining utility routes
+  const others: Array<[string, string, string]> = [
+    ['integrations', 'Integration marketplace', 'Browse providers by category with honest availability labels.'],
+    ['developers', 'Developer platform', 'API keys, webhooks, delivery logs and the endpoint reference.'],
+    ['developers/docs', 'Developer documentation', 'Authentication, pagination, filtering and error handling contracts.'],
+    ['developers/reference', 'API reference', 'Every documented endpoint with request and response shapes.'],
+    ['blog', 'Blog', 'Articles on CRM practice, data quality and operations.'],
+    ['docs', 'Documentation', 'Administrator and end-user documentation.'],
+    ['changelog', 'Changelog', 'What changed in each release of this frontend build.'],
+    ['changelog/releases', 'Release notes', 'Detailed notes per release.'],
+    ['roadmap', 'Product roadmap', 'What is planned next, and what is explicitly not planned.'],
+    ['customers', 'Customer stories', 'Placeholder page. No real customer, testimonial or outcome is published.'],
+    ['products', 'Product overview', 'Everything the platform covers, in one place.'],
+    ['contact-sales', 'Contact sales', 'Enterprise enquiries, volume pricing and residency discussions.'],
+    ['book-a-demo', 'Book a guided demo', 'A guided walkthrough with your own scenario.'],
+    ['signin', 'Sign in', 'Simulated sign-in for the demonstration build.'],
+    ['signup', 'Start free trial', 'Create an organization and load a sample dataset.'],
+    ['forgot-password', 'Reset your password', 'Simulated password reset request.'],
+    ['reset-password', 'Choose a new password', 'Simulated password reset completion.'],
+    ['verify-email', 'Verify your email', 'Simulated verification step.'],
+    ['accept-invitation', 'Accept your invitation', 'Simulated invitation acceptance and organization join.'],
+    ['portal', 'Customer portal', 'The customer-facing self-service experience.'],
+    ['platform', 'Platform administration', 'The SaaS owner console, separate from tenant administration.'],
+    ['app', 'CRM application', 'The multi-tenant CRM workspace.'],
+  ];
+  others.forEach(([path, title, summary]) => add(path, { kind: 'other', title, summary }));
+
+  return routes;
+}
+
+export interface Props {
+  kind: 'product' | 'feature' | 'industry' | 'solution' | 'resource' | 'company' | 'legal' | 'other';
+  title: string;
+  summary: string;
+  audience?: string;
+  requiresReview?: boolean;
+  complianceNote?: string;
+  requiresDisclaimer?: boolean;
+}
+
+const {
+  kind,
+  title,
+  summary,
+  requiresReview,
+  complianceNote,
+  requiresDisclaimer,
+  audience,
+} = Astro.props;
+
+const kindLabels: Record<string, string> = {
+  product: 'Product page',
+  feature: 'Feature page',
+  industry: 'Industry page',
+  solution: 'Solution page',
+  resource: 'Resource page',
+  company: 'Company page',
+  legal: 'Legal & trust page',
+  other: 'Page',
+};
+
+const related: Array<{ label: string; href: string }> =
+  kind === 'industry'
+    ? [
+        { label: 'All industries', href: '/industries' },
+        { label: 'Industry templates in the product', href: '/product/customization' },
+        { label: 'Talk to sales', href: '/contact-sales' },
+      ]
+    : kind === 'legal'
+      ? [
+          { label: 'Trust centre', href: '/trust' },
+          { label: 'Security overview', href: '/trust/security' },
+          { label: 'Contact us', href: '/company/contact' },
+        ]
+      : [
+          { label: 'Product overview', href: '/product' },
+          { label: 'All features', href: '/features' },
+          { label: 'Pricing', href: '/pricing' },
+          { label: 'Interactive demo', href: '/demo' },
+        ];
+
+const needsReview = requiresReview === true || (kind === 'legal' && legalPagesRequiringReview.has(Astro.params.slug?.split('/').pop() ?? ''));
+---
+
+<BaseLayout
+  title={title}
+  description={summary}
+  noindex
+  breadcrumbs={[{ label: 'Home', href: '/' }, { label: title }]}
+>
+  <div class="mx-auto w-full max-w-[var(--container-content)] px-4 py-16 sm:px-6 lg:px-8">
+    <p class="flex items-center gap-2 text-2xs font-semibold uppercase tracking-[0.14em] text-brand-fg">
+      <Construction className="size-3.5" aria-hidden="true" />
+      {kindLabels[kind] ?? 'Page'} · in development
+    </p>
+
+    <h1 class="mt-4 max-w-3xl text-3xl font-bold tracking-tight text-fg sm:text-4xl">{title}</h1>
+    <p class="mt-4 max-w-2xl text-base leading-relaxed text-muted">{summary}</p>
+
+    {audience ? <p class="mt-3 text-sm text-subtle">Written for: {audience}</p> : null}
+
+    <!--
+      This block is the honest part. The route exists so navigation is never broken, but
+      the screen is not finished and says so instead of imitating a finished page.
+    -->
+    <div class="mt-8 flex items-start gap-3 rounded-xl border border-dashed border-border-strong bg-surface p-5">
+      <FileText className="mt-0.5 size-4 shrink-0 text-subtle" aria-hidden="true" />
+      <div class="space-y-2">
+        <p class="text-sm font-semibold text-fg">This page is a route placeholder, not a finished screen.</p>
+        <p class="text-xs leading-relaxed text-muted">
+          The route is defined in the information architecture and the navigation links to it, so it resolves to a real
+          page rather than a 404. The content, illustrations and internal links for this page are scheduled in a later
+          development batch. It is marked <code class="rounded bg-inset px-1 py-0.5 font-mono">noindex</code> so an
+          unfinished page cannot appear in search results.
+        </p>
+        <p class="text-xs leading-relaxed text-muted">
+          Completed pages in this build include the{' '}
+          <a href="/" class="text-link underline underline-offset-2">homepage</a>,{' '}
+          <a href="/pricing" class="text-link underline underline-offset-2">pricing</a> and{' '}
+          <a href="/demo" class="text-link underline underline-offset-2">interactive demo</a>.
+        </p>
+      </div>
+    </div>
+
+    {needsReview ? (
+      <div class="mt-4 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning-subtle p-5">
+        <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning-fg" aria-hidden="true" />
+        <div class="space-y-1.5">
+          <p class="text-sm font-semibold text-warning-fg">Pending legal review</p>
+          <p class="text-xs leading-relaxed text-warning-fg">{brandConfig.legal.pendingReviewNotice}</p>
+        </div>
+      </div>
+    ) : null}
+
+    {requiresDisclaimer && complianceNote ? (
+      <div class="mt-4 flex items-start gap-3 rounded-xl border border-border-strong bg-inset p-5">
+        <ShieldAlert className="mt-0.5 size-4 shrink-0 text-subtle" aria-hidden="true" />
+        <div class="space-y-1.5">
+          <p class="text-sm font-semibold text-fg">No compliance claim</p>
+          <p class="text-xs leading-relaxed text-muted">{complianceNote}</p>
+        </div>
+      </div>
+    ) : null}
+
+    <div class="mt-10 border-t border-border-subtle pt-6">
+      <h2 class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">Where to go next</h2>
+      <ul class="flex flex-wrap gap-2">
+        {
+          related.map((link) => (
+            <li>
+              <a
+                href={link.href}
+                class="group inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3.5 py-1.5 text-xs font-medium text-fg transition-colors hover:border-border-strong hover:bg-hover"
+              >
+                {link.label}
+                <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" aria-hidden="true" />
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="mt-8 flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle bg-surface p-5">
+      <p class="text-xs text-muted">Want to see what is finished instead?</p>
+      <a
+        href="/demo"
+        class="inline-flex h-9 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-brand-contrast transition-colors hover:bg-brand-hover"
+      >
+        Open the interactive demo
+      </a>
+      <a
+        href="/pricing"
+        class="inline-flex h-9 items-center rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-fg transition-colors hover:bg-hover"
+      >
+        See pricing
+      </a>
+    </div>
+  </div>
+</BaseLayout>

@@ -1,0 +1,648 @@
+---
+/**
+ * Homepage.
+ *
+ * Structured as a sequence of self-contained sections so each one can be moved,
+ * reordered or reused on a product page. Content comes from `@/content/home.ts` and
+ * branding from `@crm/configuration`, so no copy or identity is hardcoded in markup.
+ *
+ * Every claim on this page is either verifiable from the code in this repository or
+ * explicitly labelled as an illustration. There are no invented customers, logos,
+ * ratings or certifications.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/site/Section.astro';
+import DashboardPreview from '@/components/islands/DashboardPreview';
+import ProductDemoLauncher from '@/components/islands/ProductDemoLauncher';
+import {
+  hero,
+  announcements,
+  benefits,
+  modules,
+  differentiators,
+  aiPreview,
+  globalCapabilities,
+  integrationsTeaser,
+  faq,
+  finalCta,
+} from '@/content/home';
+import { featuredIndustries, plans, demoPolicy } from '@crm/configuration';
+import {
+  ArrowRight,
+  BadgeCheck,
+  BarChart3,
+  Blocks,
+  Check,
+  HeartHandshake,
+  KanbanSquare,
+  Languages,
+  LayoutDashboard,
+  LifeBuoy,
+  Megaphone,
+  MessagesSquare,
+  Repeat,
+  Settings,
+  Sparkles,
+  UserPlus,
+  Workflow,
+} from 'lucide-react';
+
+const iconMap: Record<string, typeof UserPlus> = {
+  UserPlus,
+  KanbanSquare,
+  Megaphone,
+  LifeBuoy,
+  HeartHandshake,
+  Repeat,
+  Workflow,
+  Sparkles,
+  BarChart3,
+  Blocks,
+  MessagesSquare,
+  Settings,
+  LayoutDashboard,
+  Languages,
+};
+
+const featuredPlans = plans.filter((plan) => plan.id !== 'custom_enterprise');
+
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faq.map((item) => ({
+    '@type': 'Question',
+    name: item.question,
+    acceptedAnswer: { '@type': 'Answer', text: item.answer },
+  })),
+};
+
+const softwareJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'CRM Platform',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  description:
+    'Multi-tenant CRM platform covering sales, marketing, service, revenue operations and customer success.',
+  // No aggregateRating and no offers are emitted: prices are illustrative and there are
+  // no real reviews, so structured data must not claim either.
+};
+---
+
+<BaseLayout
+  title="Multi-tenant CRM platform for sales, marketing, service and success"
+  description="Sales, marketing, service, revenue operations and customer success in one configurable CRM platform. Explore the interactive demo, compare plans and configure an organization."
+  jsonLd={faqJsonLd}
+>
+  <!-- Extra structured data for the application itself -->
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(softwareJsonLd)} />
+
+  <!-- ============================================================ HERO -->
+  <section class="relative overflow-hidden" aria-labelledby="hero-heading">
+    <div class="surface-mesh pointer-events-none absolute inset-0 -z-10" aria-hidden="true"></div>
+    <div
+      class="grid-lines pointer-events-none absolute inset-x-0 top-0 -z-10 h-[38rem] opacity-[0.35] [mask-image:radial-gradient(60%_50%_at_50%_0%,black,transparent)]"
+      aria-hidden="true"
+    >
+    </div>
+
+    <div class="mx-auto w-full max-w-[var(--container-wide)] px-4 pb-6 pt-14 sm:px-6 sm:pt-20 lg:px-8">
+      <div class="grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-10">
+        <div class="max-w-2xl">
+          <p class="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface/80 px-3 py-1 text-2xs font-medium text-muted backdrop-blur-sm">
+            <span class="size-1.5 rounded-full bg-brand" aria-hidden="true"></span>
+            {hero.eyebrow}
+          </p>
+
+          <h1 id="hero-heading" class="mt-5 text-4xl font-bold tracking-tight text-fg sm:text-5xl">
+            {hero.title}
+          </h1>
+
+          <p class="mt-5 max-w-xl text-base leading-relaxed text-muted">{hero.body}</p>
+
+          <div class="mt-7 flex flex-wrap items-center gap-3">
+            <a
+              href={hero.primaryCta.href}
+              class="inline-flex h-11 items-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-brand-contrast shadow-sm transition-colors hover:bg-brand-hover"
+            >
+              {hero.primaryCta.label}
+              <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
+            </a>
+            <a
+              href={hero.secondaryCta.href}
+              class="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-surface px-5 text-sm font-semibold text-fg shadow-xs transition-colors hover:bg-hover"
+            >
+              {hero.secondaryCta.label}
+            </a>
+          </div>
+
+          <p class="mt-4 text-xs text-faint">{hero.supporting}</p>
+
+          <dl class="mt-9 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-border-subtle pt-6 sm:grid-cols-4">
+            {
+              hero.stats.map((stat) => (
+                <div>
+                  <dt class="text-2xs font-medium uppercase tracking-wide text-faint">{stat.label}</dt>
+                  <dd class="mt-1 text-xl font-semibold tabular-nums tracking-tight text-fg">{stat.value}</dd>
+                </div>
+              ))
+            }
+          </dl>
+        </div>
+
+        <div class="min-w-0">
+          <DashboardPreview client:visible />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================= WHAT'S NEW RAIL -->
+  <Section eyebrow="In this build" title="Three things worth looking at first" dense>
+    <ul class="grid gap-4 sm:grid-cols-3">
+      {
+        announcements.map((item) => (
+          <li>
+            <a
+              href={item.href}
+              class="group flex h-full flex-col gap-2 rounded-xl border border-border-subtle bg-surface p-4 transition-colors hover:border-border-strong hover:shadow-sm"
+            >
+              <span class="inline-flex w-fit items-center rounded-full bg-brand-subtle px-2 py-0.5 text-2xs font-semibold text-brand-fg">
+                {item.label}
+              </span>
+              <span class="text-sm font-semibold text-fg">{item.title}</span>
+              <span class="text-xs leading-relaxed text-muted">{item.body}</span>
+              <span class="mt-auto inline-flex items-center gap-1 pt-2 text-xs font-medium text-brand-fg">
+                Explore
+                <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" aria-hidden="true" />
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  <!-- ========================================================= BENEFITS -->
+  <Section
+    eyebrow="Why teams choose it"
+    title="Enterprise functionality without enterprise complexity"
+    body="Every decision in this interface answers the same question: can a business administrator configure this without a developer, and can a new user complete a real task on their first afternoon?"
+  >
+    <div class="grid gap-4 lg:grid-cols-2">
+      {
+        benefits.map((benefit) => (
+          <article
+            class:list={[
+              'flex flex-col gap-3 rounded-xl border p-5',
+              benefit.accented
+                ? 'border-brand/25 bg-brand-subtle/50'
+                : 'border-border-subtle bg-surface',
+            ]}
+          >
+            <h3 class="text-md font-semibold tracking-tight text-fg">{benefit.title}</h3>
+            <p class="text-sm leading-relaxed text-muted">{benefit.body}</p>
+            <ul class="mt-1 space-y-1.5">
+              {benefit.points.map((point) => (
+                <li class="flex items-start gap-2 text-sm text-fg">
+                  <Check className="mt-0.5 size-3.5 shrink-0 text-success-fg" aria-hidden="true" />
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))
+      }
+    </div>
+
+    <div class="mt-6 grid gap-4 border-t border-border-subtle pt-6 sm:grid-cols-3">
+      {
+        differentiators.map((item) => (
+          <div class="space-y-2">
+            <h3 class="flex items-start gap-2 text-sm font-semibold text-fg">
+              <BadgeCheck className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
+              {item.title}
+            </h3>
+            <p class="text-xs leading-relaxed text-muted">{item.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </Section>
+
+  <!-- ========================================================== MODULES -->
+  <Section
+    eyebrow="The platform"
+    title="One system for the whole customer lifecycle"
+    body="Modules are licensed and enabled per organization, and the navigation only ever shows what the tenant has and the role may open."
+    actions={[
+      { label: 'See the CRM overview', href: '/product', variant: 'secondary' },
+      { label: 'Browse all features', href: '/features', variant: 'ghost' },
+    ]}
+  >
+    <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        modules.map((module) => {
+          const Icon = iconMap[module.icon] ?? LayoutDashboard;
+          return (
+            <li>
+              <a
+                href={module.href}
+                class="group flex h-full items-start gap-3 rounded-lg border border-border-subtle bg-surface p-4 transition-colors hover:border-border-strong hover:bg-hover/40"
+              >
+                <span
+                  class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-subtle text-brand-fg"
+                  aria-hidden="true"
+                >
+                  <Icon className="size-4" />
+                </span>
+                <span class="min-w-0">
+                  <span class="block text-sm font-semibold text-fg">{module.name}</span>
+                  <span class="mt-0.5 block text-xs leading-relaxed text-muted">{module.summary}</span>
+                </span>
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </Section>
+
+  <!-- ========================================================= PIPELINE -->
+  <Section
+    eyebrow="Sales pipeline"
+    title="A board you can drive entirely from the keyboard"
+    body="Cards move by drag and drop, by the row action menu, and from the record itself — all through one operation, so the board, the stage totals and the forecast can never disagree. Every move writes an audit entry."
+    actions={[{ label: 'Pipeline management detail', href: '/features/pipeline-management', variant: 'secondary' }]}
+  >
+    <div class="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+      <ol class="grid gap-2 sm:grid-cols-3" aria-label="Pipeline stages, example">
+        {
+          [
+            { name: 'Discovery', count: 14, value: '$486K', tone: 'bg-tone-blue', note: 'Entry criteria: pain identified' },
+            { name: 'Validation', count: 9, value: '$372K', tone: 'bg-tone-teal', note: 'Solution fit confirmed' },
+            { name: 'Business case', count: 7, value: '$318K', tone: 'bg-tone-violet', note: 'Commercial model agreed' },
+            { name: 'Negotiation', count: 5, value: '$245K', tone: 'bg-tone-amber', note: 'Terms under review' },
+            { name: 'Commit', count: 4, value: '$186K', tone: 'bg-tone-green', note: 'Verbal commitment' },
+            { name: 'Closed won', count: 11, value: '$612K', tone: 'bg-tone-green', note: 'Booked revenue' },
+          ].map((stage) => (
+            <li class="rounded-lg border border-border-subtle bg-surface p-3">
+              <span class="flex items-center gap-1.5">
+                <span class:list={['size-1.5 rounded-full', stage.tone]} aria-hidden="true"></span>
+                <span class="text-xs font-semibold text-fg">{stage.name}</span>
+              </span>
+              <span class="mt-2 block text-lg font-semibold tabular-nums tracking-tight text-fg">{stage.value}</span>
+              <span class="block text-2xs text-subtle">{stage.count} deals</span>
+              <span class="mt-2 block border-t border-border-subtle pt-2 text-2xs leading-snug text-muted">
+                {stage.note}
+              </span>
+            </li>
+          ))
+        }
+      </ol>
+
+      <div class="space-y-3">
+        <h3 class="text-sm font-semibold text-fg">Also in the pipeline module</h3>
+        <ul class="space-y-2.5">
+          {
+            [
+              ['Weighted totals that update as cards move', 'Probability comes from the stage, so the weighted value is always derived, never hand-edited.'],
+              ['Required exit criteria per stage', 'A stage can demand a next step, a lost reason or an approval before a deal may leave it.'],
+              ['Stale-deal detection', 'Configurable age thresholds flag deals that have stopped moving, with the days-in-stage visible on the card.'],
+              ['Forecast categories', 'Commit, best case and pipeline categories roll up by rep, team and organization.'],
+            ].map(([title, body]) => (
+              <li class="flex gap-2.5">
+                <Check className="mt-0.5 size-3.5 shrink-0 text-success-fg" aria-hidden="true" />
+                <span class="text-xs leading-relaxed text-muted">
+                  <span class="font-medium text-fg">{title}.</span> {body}
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </Section>
+
+  <!-- ======================================================== MARKETING -->
+  <Section
+    eyebrow="Marketing automation"
+    title="Audiences, journeys and attribution that share one dataset"
+    body="Segments use nested AND/OR rules with a live audience preview. Journeys are drawn on a canvas. Attribution is calculated against the same deals the pipeline shows, so campaign ROI and pipeline value reconcile."
+    actions={[{ label: 'Marketing CRM', href: '/product/marketing-crm', variant: 'secondary' }]}
+  >
+    <div class="grid gap-4 lg:grid-cols-3">
+      {
+        [
+          {
+            title: 'Segment builder',
+            body: 'Nested groups, 18 operators and a breakdown by country, lifecycle stage, industry and consent state before you commit a single record.',
+            items: ['Dynamic, static and lookalike segments', 'Consent-aware audience counts', 'Reusable across campaigns and journeys'],
+          },
+          {
+            title: 'Journey canvas',
+            body: 'Triggers, sends, conditions, branches, delays, goals and exits, with per-node enrolment counts drawn onto the canvas.',
+            items: ['Re-entry rules and wait-until-event', 'Goal definition drives conversion reporting', 'Validation blocks activation on broken paths'],
+          },
+          {
+            title: 'Attribution',
+            body: 'Six models including first touch, last non-direct, linear, time decay and position based, with multi-touch path analysis.',
+            items: ['Model comparison on the same period', 'Cost per acquisition by touchpoint', 'Revenue reconciled against closed deals'],
+          },
+        ].map((card) => (
+          <article class="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface p-5">
+            <h3 class="text-sm font-semibold text-fg">{card.title}</h3>
+            <p class="text-xs leading-relaxed text-muted">{card.body}</p>
+            <ul class="mt-auto space-y-1.5 border-t border-border-subtle pt-3">
+              {card.items.map((item) => (
+                <li class="flex items-start gap-2 text-2xs text-muted">
+                  <Check className="mt-0.5 size-3 shrink-0 text-success-fg" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))
+      }
+    </div>
+  </Section>
+
+  <!-- ========================================================== SERVICE -->
+  <Section
+    eyebrow="Customer service"
+    title="Queues, SLAs and a knowledge base that gets used"
+    body="Targets are set per priority, the clock pauses on the statuses you choose, and escalation rules fire at a percentage of the target rather than only on breach. Articles are suggested while an agent types a reply."
+    actions={[{ label: 'Customer service CRM', href: '/product/customer-service-crm', variant: 'secondary' }]}
+  >
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        [
+          { label: 'SLA targets', value: '4 priorities', note: 'First response, next response and resolution, per calendar' },
+          { label: 'Escalation', value: 'At % of target', note: 'Notify, reassign, raise priority or tag' },
+          { label: 'Knowledge base', value: 'Internal + public', note: 'Review dates, helpfulness voting, article links' },
+          { label: 'Satisfaction', value: 'CSAT · NPS · CES', note: 'Per agent, per queue, over time' },
+        ].map((item) => (
+          <div class="rounded-xl border border-border-subtle bg-surface p-4">
+            <p class="text-2xs font-medium uppercase tracking-wide text-faint">{item.label}</p>
+            <p class="mt-1.5 text-md font-semibold tracking-tight text-fg">{item.value}</p>
+            <p class="mt-1 text-2xs leading-snug text-muted">{item.note}</p>
+          </div>
+        ))
+      }
+    </div>
+  </Section>
+
+  <!-- =============================================================== AI -->
+  <Section
+    eyebrow="AI assistant"
+    title={aiPreview.title}
+    body={aiPreview.body}
+    actions={[{ label: 'How the assistant works', href: '/features/ai-assistant', variant: 'secondary' }]}
+  >
+    <div class="grid gap-6 lg:grid-cols-[1fr_1.1fr] lg:items-start">
+      <div class="space-y-2.5">
+        <p class="text-2xs font-semibold uppercase tracking-wide text-faint">Example prompts</p>
+        <ul class="space-y-2">
+          {
+            aiPreview.prompts.map((prompt, index) => (
+              <li class="flex items-start gap-2.5 rounded-lg border border-border-subtle bg-surface px-3 py-2.5">
+                <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-2xs font-semibold text-brand-fg">
+                  {index + 1}
+                </span>
+                <span class="text-xs text-fg">{prompt}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <div class="space-y-3">
+        <p class="text-2xs font-semibold uppercase tracking-wide text-faint">How it behaves</p>
+        <dl class="grid gap-3 sm:grid-cols-2">
+          {
+            aiPreview.outputs.map((item) => (
+              <div class="rounded-lg border border-border-subtle bg-inset p-3">
+                <dt class="text-xs font-semibold text-fg">{item.label}</dt>
+                <dd class="mt-1 text-2xs leading-relaxed text-muted">{item.value}</dd>
+              </div>
+            ))
+          }
+        </dl>
+        <div class="rounded-lg border border-dashed border-border-strong bg-surface p-3">
+          <p class="text-2xs leading-relaxed text-muted">{demoPolicy.aiNotice}</p>
+        </div>
+      </div>
+    </div>
+  </Section>
+
+  <!-- ====================================================== INDUSTRIES -->
+  <Section
+    eyebrow="Industry templates"
+    title="Start from your industry, then remove what you do not need"
+    body="Each template is a configuration profile: terminology, extra objects and fields, a sample pipeline, representative workflows and a dashboard. Installing one never removes your own data, and it can be uninstalled."
+    actions={[{ label: 'All industries', href: '/industries', variant: 'secondary' }]}
+  >
+    <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        featuredIndustries.slice(0, 8).map((industry) => (
+          <li>
+            <a
+              href={`/industries/${industry.id.replace(/_/g, '-')}`}
+              class="group flex h-full flex-col gap-2 rounded-lg border border-border-subtle bg-surface p-4 transition-colors hover:border-border-strong"
+            >
+              <span class="text-sm font-semibold text-fg">{industry.label}</span>
+              <span class="text-2xs leading-relaxed text-muted">{industry.description}</span>
+              <span class="mt-auto pt-1 text-2xs text-faint">
+                {industry.extraObjects.length} extra objects · {industry.sampleWorkflows.length} workflows
+              </span>
+              {industry.regulatoryDisclaimerRequired ? (
+                <span class="inline-flex w-fit rounded-sm border border-dashed border-warning/40 px-1 text-[0.5625rem] uppercase tracking-wide text-warning-fg">
+                  No compliance claim
+                </span>
+              ) : null}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  <!-- ======================================================= INTEGRATIONS -->
+  <Section
+    eyebrow="Integration ecosystem"
+    title={integrationsTeaser.title}
+    body={integrationsTeaser.body}
+    actions={[{ label: 'Browse the marketplace', href: '/integrations', variant: 'secondary' }]}
+  >
+    <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {
+        integrationsTeaser.categories.map((category) => (
+          <li class="rounded-lg border border-border-subtle bg-surface p-3.5">
+            <p class="text-xs font-semibold text-fg">{category.name}</p>
+            <p class="mt-1.5 text-2xs leading-relaxed text-muted">{category.examples}</p>
+          </li>
+        ))
+      }
+    </ul>
+    <div class="mt-4 rounded-lg border border-dashed border-border-strong bg-inset p-3.5">
+      <p class="text-2xs leading-relaxed text-muted">
+        <span class="font-medium text-fg">Honest availability.</span>
+        {demoPolicy.trustNotice} No OAuth flow is implemented and no provider credentials are requested or stored anywhere
+        in this build.
+      </p>
+    </div>
+  </Section>
+
+  <!-- ===================================================== GLOBAL READY -->
+  <Section
+    eyebrow="Built for worldwide teams"
+    title="Global from the first render, not retrofitted later"
+    body="Direction, formatting and locale are configuration, not hardcoded assumptions. The layout uses logical properties throughout, so adding a right-to-left language changes direction rather than requiring a second stylesheet."
+  >
+    <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        globalCapabilities.map((item) => (
+          <li class="flex gap-3 rounded-lg border border-border-subtle bg-surface p-4">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-tone-teal-bg text-tone-teal" aria-hidden="true">
+              <Languages className="size-4" />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold text-fg">{item.title}</span>
+              <span class="mt-0.5 block text-2xs leading-relaxed text-muted">{item.body}</span>
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  <!-- =========================================================== DEMO -->
+  <Section
+    eyebrow="Try it now"
+    title="Explore the CRM without creating an account"
+    body="The demo runs entirely in your browser with an isolated synthetic dataset. It is never connected to a real workspace, and you can reset every change from the toolbar."
+    align="center"
+  >
+    <ProductDemoLauncher client:visible />
+  </Section>
+
+  <!-- ========================================================= PRICING -->
+  <Section
+    eyebrow="Pricing"
+    title="Plans that start small and grow with the team"
+    body="Every price and limit shown here is an illustrative placeholder used to design and test the pricing interface. No commercial offering has been finalised."
+    actions={[{ label: 'Full pricing and comparison', href: '/pricing', variant: 'secondary' }]}
+  >
+    <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        featuredPlans.map((plan) => {
+          const monthly = plan.prices.find((price) => price.interval === 'month');
+          return (
+            <li
+              class:list={[
+                'flex flex-col gap-3 rounded-xl border p-4',
+                plan.recommended ? 'border-brand/40 bg-brand-subtle/40 shadow-sm' : 'border-border-subtle bg-surface',
+              ]}
+            >
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-sm font-semibold text-fg">{plan.name}</span>
+                {plan.recommended ? (
+                  <span class="rounded-full bg-brand px-2 py-0.5 text-2xs font-semibold text-brand-contrast">Popular</span>
+                ) : null}
+              </div>
+              <p class="text-2xs leading-relaxed text-muted">{plan.tagline}</p>
+              <p class="mt-auto">
+                {monthly ? (
+                  <>
+                    <span class="text-2xl font-semibold tabular-nums tracking-tight text-fg">
+                      ${monthly.perUserPrice}
+                    </span>
+                    <span class="text-2xs text-muted"> per user / month</span>
+                    {monthly.basePlatformFee > 0 ? (
+                      <span class="mt-1 block text-2xs text-subtle">
+                        plus ${monthly.basePlatformFee} platform fee per month
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span class="text-sm font-semibold text-fg">Contact sales</span>
+                )}
+              </p>
+              <a
+                href={plan.ctaRoute}
+                class:list={[
+                  'inline-flex h-9 items-center justify-center rounded-md text-sm font-medium transition-colors',
+                  plan.recommended
+                    ? 'bg-brand text-brand-contrast hover:bg-brand-hover'
+                    : 'border border-border bg-surface text-fg hover:bg-hover',
+                ]}
+              >
+                {plan.ctaLabel}
+              </a>
+              <ul class="space-y-1.5 border-t border-border-subtle pt-3">
+                {plan.highlights.slice(0, 4).map((highlight) => (
+                  <li class="flex items-start gap-2 text-2xs text-muted">
+                    <Check className="mt-0.5 size-3 shrink-0 text-success-fg" aria-hidden="true" />
+                    {highlight}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          );
+        })
+      }
+    </ul>
+    <p class="mt-4 text-center text-2xs text-faint">{demoPolicy.websiteFiguresNotice}</p>
+  </Section>
+
+  <!-- =============================================================== FAQ -->
+  <Section eyebrow="Questions" title="Answers before you start" align="center" width="content">
+    <div class="mx-auto max-w-[var(--container-narrow)] divide-y divide-[var(--border-subtle)] border-y border-border-subtle">
+      {
+        faq.map((item) => (
+          <details class="group py-1">
+            <summary class="flex cursor-pointer list-none items-start justify-between gap-4 py-4 text-start">
+              <h3 class="text-sm font-medium text-fg">{item.question}</h3>
+              <span
+                class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border-subtle text-subtle transition-transform group-open:rotate-45"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 12 12" class="size-2.5" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M6 2v8M2 6h8" stroke-linecap="round" />
+                </svg>
+              </span>
+            </summary>
+            <p class="pb-4 pe-8 text-xs leading-relaxed text-muted">{item.answer}</p>
+          </details>
+        ))
+      }
+    </div>
+  </Section>
+
+  <!-- ========================================================== FINAL CTA -->
+  <Section borderless>
+    <div class="relative overflow-hidden rounded-2xl border border-border-subtle bg-surface px-6 py-12 text-center sm:px-12">
+      <div class="surface-brand-soft pointer-events-none absolute inset-0 -z-10" aria-hidden="true"></div>
+      <h2 class="mx-auto max-w-2xl text-2xl font-bold tracking-tight text-fg sm:text-3xl">{finalCta.title}</h2>
+      <p class="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted">{finalCta.body}</p>
+      <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
+        <a
+          href={finalCta.primary.href}
+          class="inline-flex h-11 items-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-brand-contrast shadow-sm transition-colors hover:bg-brand-hover"
+        >
+          {finalCta.primary.label}
+          <ArrowRight className="size-4 rtl:rotate-180" aria-hidden="true" />
+        </a>
+        <a
+          href={finalCta.secondary.href}
+          class="inline-flex h-11 items-center rounded-lg border border-border bg-surface px-5 text-sm font-semibold text-fg shadow-xs transition-colors hover:bg-hover"
+        >
+          {finalCta.secondary.label}
+        </a>
+      </div>
+      <p class="mt-5 text-2xs text-faint">
+        Frontend demonstration build · synthetic data · no account, payment or integration is real
+      </p>
+    </div>
+  </Section>
+</BaseLayout>

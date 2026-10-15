@@ -1,0 +1,61 @@
+{
+  "name": "crm-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant SaaS CRM platform - frontend monorepo (public website, CRM application, platform administration).",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:website",
+    "dev:website": "npm run dev --workspace @crm/website",
+    "dev:crm": "npm run dev --workspace @crm/app",
+    "dev:admin": "npm run dev --workspace @crm/platform-admin",
+    "build": "npm run build:website && npm run build:crm && npm run build:admin",
+    "build:website": "npm run build --workspace @crm/website",
+    "build:crm": "npm run build --workspace @crm/app",
+    "build:admin": "npm run build --workspace @crm/platform-admin",
+    "preview:website": "npm run preview --workspace @crm/website",
+    "preview:crm": "npm run preview --workspace @crm/app",
+    "preview:admin": "npm run preview --workspace @crm/platform-admin",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,astro,css,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,astro,css,json,md}\"",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.2",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "jsdom": "^27.4.0",
+    "prettier": "^3.9.10",
+    "prettier-plugin-astro": "^1.1.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.2",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^5.0.4",
+    "vitest-axe": "^0.1.0"
+  }
+}

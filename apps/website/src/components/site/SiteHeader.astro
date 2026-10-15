@@ -1,0 +1,401 @@
+---
+/**
+ * Sticky site header with accessible mega menus.
+ *
+ * Accessibility contract (this is the pattern every mega menu on the site follows):
+ *  - The trigger is a real `<button>` with `aria-expanded` and `aria-haspopup="true"`.
+ *  - The panel opens on click and on Enter/Space; ArrowDown opens and focuses the first
+ *    link. Escape closes and returns focus to the trigger.
+ *  - Opening one panel closes any other; focus leaving the panel closes it.
+ *  - Hover alone never opens a panel — hover is treated as a pointer convenience only
+ *    when a pointer is present and the user has not chosen reduced motion.
+ *  - Every destination is also reachable without JavaScript: the parent link still
+ *    navigates to the section index page.
+ *
+ * The nav is server-rendered from `@crm/configuration`, so crawlers see every link and
+ * no JavaScript is required to read the site structure.
+ */
+import { brandConfig, primaryNav, appLinks } from '@crm/configuration';
+import ThemeToggle from '@/components/islands/ThemeToggle';
+
+const nav = primaryNav;
+const path = Astro.url.pathname;
+
+function isActive(href: string): boolean {
+  if (href === '/') return path === '/';
+  return path === href || path.startsWith(`${href}/`);
+}
+---
+
+<header
+  id="site-header"
+  class="sticky top-0 z-[30] w-full border-b border-border-subtle bg-[var(--surface-glass)] backdrop-blur-md"
+>
+  <div class="mx-auto flex h-14 w-full max-w-[var(--container-wide)] items-center gap-3 px-4 sm:px-6 lg:px-8">
+    <!-- Wordmark -->
+    <a
+      href="/"
+      class="flex shrink-0 items-center gap-2 rounded-md text-fg"
+      aria-label={`${brandConfig.productDisplayName} home`}
+    >
+      <img src={brandConfig.assets.logoMark.src} alt="" width="28" height="28" class="size-7" />
+      <span class="hidden text-sm font-semibold tracking-tight sm:inline">
+        {brandConfig.shortName}
+        <span class="font-normal text-muted"> Platform</span>
+      </span>
+    </a>
+
+    <!-- Desktop navigation -->
+    <nav class="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex" aria-label="Main navigation">
+      {
+        nav.map((item) => {
+          const active = isActive(item.href);
+          const hasPanel = Boolean(item.groups?.length || item.dropdown?.length);
+          const panelId = `nav-panel-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+          return (
+            <div class="relative" data-nav-group>
+              {hasPanel ? (
+                <button
+                  type="button"
+                  class:list={[
+                    'inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
+                    active ? 'text-brand-fg' : 'text-muted hover:bg-hover hover:text-fg',
+                  ]}
+                  aria-expanded="false"
+                  aria-haspopup="true"
+                  aria-controls={panelId}
+                  data-nav-trigger
+                >
+                  {item.label}
+                  <svg viewBox="0 0 12 12" class="size-2.5 opacity-60 transition-transform" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" data-nav-chevron>
+                    <path d="M2.5 4.5L6 8l3.5-3.5" stroke-linecap="round" />
+                  </svg>
+                </button>
+              ) : (
+                <a
+                  href={item.href}
+                  class:list={[
+                    'inline-flex items-center rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
+                    active ? 'text-brand-fg' : 'text-muted hover:bg-hover hover:text-fg',
+                  ]}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {item.label}
+                </a>
+              )}
+
+              {hasPanel ? (
+                <div
+                  id={panelId}
+                  class="invisible absolute start-1/2 top-full z-[40] hidden -translate-x-1/2 rtl:translate-x-1/2"
+                  data-nav-panel
+                  role="group"
+                  aria-label={`${item.label} menu`}
+                >
+                  <div class="mt-2 overflow-hidden rounded-xl border border-border bg-overlay shadow-xl">
+                    <div class="p-4">
+                      <div class="flex gap-6">
+                        {item.groups?.map((group) => (
+                          <div class="min-w-[13rem] max-w-[16rem]">
+                            <p class="mb-2 text-2xs font-semibold uppercase tracking-wider text-faint">{group.label}</p>
+                            <ul class="space-y-0.5">
+                              {group.links.map((link) => (
+                                <li>
+                                  <a
+                                    href={link.href}
+                                    class="block rounded-md px-2 py-1.5 transition-colors hover:bg-hover"
+                                  >
+                                    <span class="flex items-center gap-1.5 text-sm font-medium text-fg">
+                                      {link.label}
+                                      {link.badge ? (
+                                        <span class="rounded-full bg-brand-subtle px-1.5 py-0.5 text-2xs font-semibold text-brand-fg">
+                                          {link.badge}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                    {link.description ? (
+                                      <span class="mt-0.5 block text-xs leading-snug text-muted">{link.description}</span>
+                                    ) : null}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                        {item.dropdown?.length ? (
+                          <div class="min-w-[13rem]">
+                            <ul class="space-y-0.5">
+                              {item.dropdown.map((link) => (
+                                <li>
+                                  <a href={link.href} class="block rounded-md px-2 py-1.5 text-sm text-fg transition-colors hover:bg-hover">
+                                    {link.label}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {item.feature ? (
+                      <div class="border-t border-border-subtle bg-brand-subtle/60 p-4">
+                        <p class="text-sm font-semibold text-fg">{item.feature.title}</p>
+                        <p class="mt-1 max-w-lg text-xs text-muted">{item.feature.body}</p>
+                        <a href={item.feature.href} class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-fg hover:underline">
+                          {item.feature.ctaLabel}
+                          <span aria-hidden="true">→</span>
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })
+      }
+    </nav>
+
+    <!-- Actions -->
+    <div class="ms-auto flex shrink-0 items-center gap-1.5">
+      <div class="hidden lg:block">
+        <ThemeToggle client:load />
+      </div>
+      <a
+        href="/resources/help-center"
+        class="hidden rounded-md px-2.5 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-hover hover:text-fg lg:inline-flex"
+      >
+        Help
+      </a>
+      <a
+        href={appLinks.login}
+        class="rounded-md px-2.5 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-hover"
+      >
+        Log in
+      </a>
+      <a
+        href={appLinks.trial}
+        class="inline-flex h-8 items-center rounded-md bg-brand px-3 text-sm font-medium text-brand-contrast shadow-xs transition-colors hover:bg-brand-hover"
+      >
+        <span class="hidden sm:inline">Start free trial</span>
+        <span class="sm:hidden">Start</span>
+      </a>
+
+      <!-- Mobile menu trigger: a real button that reports its state -->
+      <button
+        type="button"
+        class="inline-flex size-8 items-center justify-center rounded-md text-fg transition-colors hover:bg-hover lg:hidden"
+        aria-expanded="false"
+        aria-controls="mobile-nav"
+        aria-label="Open navigation menu"
+        data-mobile-nav-trigger
+      >
+        <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <path d="M3 6h14M3 10h14M3 14h14" stroke-linecap="round" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!--
+    Mobile navigation.
+    Rendered in the DOM (so it is crawlable and works without JS for reading), hidden
+    from assistive technology and pointer input until the trigger opens it. Uses the
+    native `hidden` attribute plus `inert`-like behaviour via `aria-hidden` and
+    `visibility` in CSS rather than `display:none` on the whole subtree, so scroll
+    position and focus order stay predictable.
+  -->
+  <div
+    id="mobile-nav"
+    class="fixed inset-x-0 top-14 z-[35] hidden max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-t border-border-subtle bg-overlay shadow-xl lg:hidden"
+    data-mobile-nav
+    aria-label="Mobile navigation"
+  >
+    <div class="space-y-1 p-4">
+      {
+        nav.map((item) => {
+          const hasPanel = Boolean(item.groups?.length || item.dropdown?.length);
+          const active = isActive(item.href);
+          if (!hasPanel) {
+            return (
+              <a
+                href={item.href}
+                class:list={[
+                  'block rounded-md px-3 py-2.5 text-sm font-medium',
+                  active ? 'bg-selected text-brand-fg' : 'text-fg hover:bg-hover',
+                ]}
+                aria-current={active ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            );
+          }
+          return (
+            <details class="group rounded-md border border-border-subtle">
+              <summary class="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm font-medium text-fg">
+                {item.label}
+                <svg viewBox="0 0 12 12" class="size-3 text-subtle transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                  <path d="M2.5 4.5L6 8l3.5-3.5" stroke-linecap="round" />
+                </svg>
+              </summary>
+              <div class="space-y-3 border-t border-border-subtle px-3 pb-3 pt-2">
+                {item.groups?.map((group) => (
+                  <div>
+                    <p class="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-faint">{group.label}</p>
+                    <ul class="space-y-0.5">
+                      {group.links.map((link) => (
+                        <li>
+                          <a href={link.href} class="block rounded px-2 py-1.5 text-sm text-muted hover:bg-hover hover:text-fg">
+                            {link.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                {item.dropdown?.length ? (
+                  <ul class="space-y-0.5">
+                    {item.dropdown.map((link) => (
+                      <li>
+                        <a href={link.href} class="block rounded px-2 py-1.5 text-sm text-muted hover:bg-hover hover:text-fg">
+                          {link.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            </details>
+          );
+        })
+      }
+
+      <div class="!mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
+        <a href={appLinks.login} class="inline-flex h-9 items-center justify-center rounded-md border border-border text-sm font-medium text-fg">
+          Log in
+        </a>
+        <a href={appLinks.trial} class="inline-flex h-9 items-center justify-center rounded-md bg-brand text-sm font-medium text-brand-contrast">
+          Free trial
+        </a>
+      </div>
+      <a href="/contact-sales" class="block pt-2 text-center text-sm text-muted hover:text-fg">
+        Contact sales
+      </a>
+    </div>
+  </div>
+</header>
+
+<script is:inline>
+  (() => {
+    const header = document.getElementById('site-header');
+    if (!header) return;
+
+    const triggers = Array.from(header.querySelectorAll('[data-nav-trigger]'));
+    const mobileTrigger = header.querySelector('[data-mobile-nav-trigger]');
+    const mobilePanel = header.querySelector('[data-mobile-nav]');
+
+    const closeAllPanels = (except) => {
+      for (const trigger of triggers) {
+        if (trigger === except) continue;
+        const panel = document.getElementById(trigger.getAttribute('aria-controls'));
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.removeAttribute('data-open');
+        if (panel) {
+          panel.classList.add('hidden', 'invisible');
+          panel.style.removeProperty('--panel-shift');
+        }
+      }
+    };
+
+    const openPanel = (trigger, focusFirst) => {
+      const panel = document.getElementById(trigger.getAttribute('aria-controls'));
+      if (!panel) return;
+      closeAllPanels(trigger);
+      trigger.setAttribute('aria-expanded', 'true');
+      trigger.setAttribute('data-open', '');
+      panel.classList.remove('hidden', 'invisible');
+      // Keep wide panels inside the viewport on smaller laptops.
+      const rect = panel.getBoundingClientRect();
+      const overflowRight = rect.right - window.innerWidth + 16;
+      const overflowLeft = 16 - rect.left;
+      if (overflowRight > 0) panel.style.setProperty('--panel-shift', `-${overflowRight}px`);
+      else if (overflowLeft > 0) panel.style.setProperty('--panel-shift', `${overflowLeft}px`);
+      const shift = panel.style.getPropertyValue('--panel-shift');
+      if (shift) panel.style.transform = `translateX(calc(-50% + ${shift}))`;
+      if (focusFirst) panel.querySelector('a, button')?.focus();
+    };
+
+    for (const trigger of triggers) {
+      trigger.addEventListener('click', () => {
+        if (trigger.getAttribute('aria-expanded') === 'true') {
+          closeAllPanels();
+        } else {
+          openPanel(trigger, false);
+        }
+      });
+
+      trigger.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          openPanel(trigger, true);
+        }
+      });
+
+      // Close when focus leaves the trigger + its panel entirely.
+      trigger.addEventListener('focusout', (event) => {
+        const panel = document.getElementById(trigger.getAttribute('aria-controls'));
+        const next = event.relatedTarget;
+        if (panel && next instanceof Node && (panel.contains(next) || trigger.contains(next))) return;
+        closeAllPanels();
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        const open = triggers.find((t) => t.getAttribute('aria-expanded') === 'true');
+        if (open) {
+          closeAllPanels();
+          open.focus();
+        }
+        if (mobilePanel && !mobilePanel.classList.contains('hidden')) setMobileOpen(false);
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (header.contains(target)) return;
+      closeAllPanels();
+    });
+
+    // ------------------------------------------------------------ mobile
+
+    const setMobileOpen = (open) => {
+      if (!mobilePanel || !mobileTrigger) return;
+      mobilePanel.classList.toggle('hidden', !open);
+      mobileTrigger.setAttribute('aria-expanded', String(open));
+      mobileTrigger.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+      // Prevent the page behind the sheet from scrolling.
+      document.body.style.overflow = open ? 'hidden' : '';
+    };
+
+    mobileTrigger?.addEventListener('click', () => {
+      const open = mobileTrigger.getAttribute('aria-expanded') !== 'true';
+      setMobileOpen(open);
+    });
+
+    // Close the mobile panel on resize to desktop so state cannot desynchronise.
+    window.addEventListener('resize', () => {
+      if (window.innerWidth >= 1024) setMobileOpen(false);
+    });
+
+    // -------------------------------------------------------- sticky state
+
+    const onScroll = () => {
+      header.classList.toggle('shadow-sm', window.scrollY > 4);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>

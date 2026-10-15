@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.npm/
+
+# build output
+dist/
+build/
+.astro/
+.output/
+*.tsbuildinfo
+
+# test artifacts
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+.playwright-mcp/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# logs
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# local scratch
+.tmp/
+scratch/

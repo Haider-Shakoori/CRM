@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Social sharing image placeholder">
+  <defs>
+    <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1b1830"/>
+      <stop offset="55%" stop-color="#2c2350"/>
+      <stop offset="100%" stop-color="#0d3b40"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#sg)"/>
+  <circle cx="1010" cy="120" r="200" fill="#6d4aff" opacity="0.18"/>
+  <circle cx="180" cy="540" r="240" fill="#0e7c86" opacity="0.16"/>
+  <rect x="72" y="72" width="56" height="56" rx="14" fill="#6d4aff"/>
+  <text x="72" y="250" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="58" font-weight="650" fill="#ffffff" letter-spacing="-1.6">The customer platform</text>
+  <text x="72" y="320" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="58" font-weight="650" fill="#ffffff" letter-spacing="-1.6">your whole company can use</text>
+  <text x="72" y="386" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="24" fill="#b9b4d6">Sales · Marketing · Service · Revenue operations · Customer success</text>
+  <text x="72" y="560" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="500" fill="#8d86b8">Social sharing image placeholder — replace with final brand asset</text>
+</svg>

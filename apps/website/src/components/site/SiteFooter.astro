@@ -1,0 +1,100 @@
+---
+/**
+ * Site footer.
+ *
+ * Columns come from `@crm/configuration`, so the footer, the sitemap and the internal
+ * link checker all read one list. Every link points at a real route in this build —
+ * there are no `href="#"` placeholders.
+ *
+ * The demonstration-content notice is deliberately visible: the site shows synthetic
+ * metrics and placeholder company content, and says so rather than implying otherwise.
+ */
+import { brandConfig, footerColumns } from '@crm/configuration';
+import LocaleSwitcher from '@/components/islands/LocaleSwitcher';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-24 border-t border-border-subtle bg-surface">
+  <div class="mx-auto w-full max-w-[var(--container-wide)] px-4 py-14 sm:px-6 lg:px-8">
+    <div class="grid gap-10 lg:grid-cols-[minmax(15rem,20rem)_1fr]">
+      <!-- Brand column -->
+      <div class="space-y-4">
+        <a href="/" class="inline-flex items-center gap-2" aria-label={`${brandConfig.productDisplayName} home`}>
+          <img src={brandConfig.assets.logoMark.src} alt="" width="28" height="28" class="size-7" />
+          <span class="text-sm font-semibold tracking-tight text-fg">{brandConfig.productDisplayName}</span>
+        </a>
+        <p class="max-w-xs text-sm text-muted">{brandConfig.productSummary}</p>
+
+        <div class="space-y-2">
+          <LocaleSwitcher client:idle />
+          <p class="text-2xs text-faint">
+            English is complete. Other languages are partially translated and fall back to English.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 pt-1">
+          <a href="/trust" class="text-xs font-medium text-muted hover:text-fg">Trust centre</a>
+          <span class="text-faint" aria-hidden="true">·</span>
+          <a href="/trust/status" class="text-xs font-medium text-muted hover:text-fg">Service status</a>
+          <span class="text-faint" aria-hidden="true">·</span>
+          <a href="/changelog" class="text-xs font-medium text-muted hover:text-fg">Changelog</a>
+        </div>
+      </div>
+
+      <!-- Link columns -->
+      <nav aria-label="Footer navigation" class="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-6">
+        {
+          footerColumns.map((column) => (
+            <div class="min-w-0">
+              <h2 class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">{column.title}</h2>
+              <ul class="space-y-1.5">
+                {column.links.map((link) => (
+                  <li>
+                    <a
+                      href={link.href}
+                      class="inline-flex items-center gap-1 text-xs text-muted transition-colors hover:text-fg"
+                    >
+                      <span class="min-w-0 truncate">{link.label}</span>
+                      {link.demoContent ? (
+                        <span class="shrink-0 rounded-sm border border-dashed border-border-strong px-1 text-[0.5625rem] uppercase tracking-wide text-faint">
+                          Sample
+                        </span>
+                      ) : null}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+      </nav>
+    </div>
+
+    <!-- Honest labelling block -->
+    <div class="mt-12 space-y-3 border-t border-border-subtle pt-6">
+      <p class="text-xs leading-relaxed text-muted">{brandConfig.website.demoContentNotice}</p>
+      <p class="text-xs leading-relaxed text-muted">
+        <span class="font-medium text-fg">Product name and identity are provisional.</span>
+        This build uses the temporary development name “{brandConfig.productDisplayName}”. The final name, logo and
+        domain will replace the placeholders in
+        <code class="mx-1 rounded bg-inset px-1 py-0.5 font-mono text-[0.6875rem]">packages/configuration/src/branding.ts</code>
+        without any component changes.
+      </p>
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <p class="text-2xs text-faint">
+          © {year} {brandConfig.legal.companyNamePlaceholder} · {brandConfig.legal.registeredAddressPlaceholder}
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a href="/legal/privacy" class="text-2xs text-muted hover:text-fg">Privacy</a>
+          <a href="/legal/terms" class="text-2xs text-muted hover:text-fg">Terms</a>
+          <a href="/legal/cookies" class="text-2xs text-muted hover:text-fg">Cookies</a>
+          <a href="/legal/cookie-preferences" class="text-2xs text-muted hover:text-fg">Cookie preferences</a>
+          <a href="/legal/dpa" class="text-2xs text-muted hover:text-fg">DPA</a>
+          <a href="/legal/sla" class="text-2xs text-muted hover:text-fg">SLA</a>
+          <a href="/legal/acceptable-use" class="text-2xs text-muted hover:text-fg">Acceptable use</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>

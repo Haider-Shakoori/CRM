@@ -1,0 +1,39 @@
+{
+  "name": "@crm/website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Public marketing website: product, solutions, industries, pricing, resources, legal and the public interactive demo.",
+  "scripts": {
+    "dev": "astro dev --port 4321",
+    "start": "astro dev --port 4321",
+    "build": "astro build",
+    "preview": "astro preview --port 4321",
+    "typecheck": "astro check",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/react": "^7.0.1",
+    "@astrojs/sitemap": "^3.7.4",
+    "@crm/configuration": "*",
+    "@crm/design-tokens": "*",
+    "@crm/localization": "*",
+    "@crm/mock-services": "*",
+    "@crm/shared-types": "*",
+    "@crm/ui": "*",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.8",
+    "clsx": "^2.1.1",
+    "i18next": "^26.4.4",
+    "lucide-react": "^1.56.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-i18next": "^17.0.16",
+    "recharts": "^3.10.1",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.5",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,193 @@
+---
+/**
+ * Public interactive demo.
+ *
+ * The demo is genuinely interactive and completely isolated: it runs on a seeded,
+ * synthetic dataset inside the browser, never contacts a workspace, and can be reset.
+ *
+ * This route also acts as the honest front door for the whole demonstration: it states
+ * in plain language which capabilities are simulated, and it links to the real CRM
+ * routes so a visitor can drive an actual workflow rather than watch a slideshow.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Section from '@/components/site/Section.astro';
+import { crmUrl } from '@/config/apps';
+import ProductDemoLauncher from '@/components/islands/ProductDemoLauncher';
+import { demoPolicy, demoNotices } from '@crm/configuration';
+import { ShieldCheck, RotateCcw } from 'lucide-react';
+
+const simulated = Object.values(demoNotices).filter((notice) =>
+  ['email_delivery', 'sms_delivery', 'whatsapp_delivery', 'telephony', 'ai', 'file_storage', 'e_signature', 'gps', 'oauth', 'webhooks', 'payments', 'monitoring', 'tax', 'exchange_rates'].includes(
+    notice.capability,
+  ),
+);
+
+const guidedTour = [
+  { step: 1, title: 'Land on the sales dashboard', route: crmUrl('/home', { demo: 1 }), body: 'Role-based widgets: weighted pipeline, commit this quarter, tasks due and recent activity across modules.' },
+  { step: 2, title: 'Work a lead', route: crmUrl('/leads', { demo: 1 }), body: 'Filter, open a lead, read the scoring factors, then run the conversion preview to see exactly what would be created.' },
+  { step: 3, title: 'Move a deal', route: crmUrl('/deals', { demo: 1 }), body: 'Move a card with drag and drop, then repeat the same move from the row menu. The stage totals and forecast update both times.' },
+  { step: 4, title: 'Complete the daily plan', route: crmUrl('/activities', { demo: 1 }), body: 'Overdue and due-today tasks, meeting preparation and sequence steps in one prioritised queue.' },
+  { step: 5, title: 'Triage the support queue', route: crmUrl('/tickets', { demo: 1 }), body: 'Priority-based SLA timers, saved replies, knowledge article suggestions and an escalation at risk of breach.' },
+  { step: 6, title: 'Read a health score', route: crmUrl('/customer-success', { demo: 1 }), body: 'Weighted health components, the signals behind them and the recommended next action.' },
+  { step: 7, title: 'Build something', route: crmUrl('/workflows', { demo: 1 }), body: 'Add a trigger, a condition and an action, validate the workflow, then run a simulation and read the step-by-step result.' },
+  { step: 8, title: 'Configure the platform', route: crmUrl('/customization', { demo: 1 }), body: 'Create a custom field with conditional visibility and preview it on a page layout against a sample record.' },
+];
+
+const tourJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: 'Guided CRM platform demo',
+  description: 'Walk through the main CRM workflows using isolated synthetic data in your browser.',
+  step: guidedTour.map((item) => ({
+    '@type': 'HowToStep',
+    position: item.step,
+    name: item.title,
+    text: item.body,
+    url: item.route,
+  })),
+};
+---
+
+<BaseLayout
+  title="Interactive product demo"
+  description="Explore leads, pipeline, tasks, support, customer success and workflow automation in your browser with isolated synthetic data. No account required, and everything resets on demand."
+  breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Interactive demo' }]}
+  jsonLd={tourJsonLd}
+>
+  <section class="relative overflow-hidden border-b border-border-subtle" aria-labelledby="demo-heading">
+    <div class="surface-mesh pointer-events-none absolute inset-0 -z-10" aria-hidden="true"></div>
+    <div class="mx-auto w-full max-w-[var(--container-wide)] px-4 pb-10 pt-14 sm:px-6 sm:pt-20 lg:px-8">
+      <div class="max-w-3xl">
+        <p class="text-2xs font-semibold uppercase tracking-[0.14em] text-brand-fg">Interactive demo</p>
+        <h1 id="demo-heading" class="mt-4 text-4xl font-bold tracking-tight text-fg sm:text-5xl">
+          Drive the product yourself, with data that is nobody’s
+        </h1>
+        <p class="mt-5 text-base leading-relaxed text-muted">
+          Pick a role below to jump straight into the workflow that matters to you. The demo runs on a seeded synthetic
+          dataset held in your browser, so you can move deals, complete tasks and edit records without creating an
+          account or touching a real workspace.
+        </p>
+        <div class="mt-6 flex flex-wrap items-center gap-3">
+          <a
+            href={crmUrl('/home', { demo: 1 })}
+            class="inline-flex h-11 items-center rounded-lg bg-brand px-5 text-sm font-semibold text-brand-contrast shadow-sm transition-colors hover:bg-brand-hover"
+          >
+            Open the CRM demo
+          </a>
+          <button
+            type="button"
+            id="reset-demo"
+            class="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-surface px-5 text-sm font-semibold text-fg shadow-xs transition-colors hover:bg-hover"
+          >
+            <RotateCcw className="size-4" aria-hidden="true" />
+            Reset demo data
+          </button>
+        </div>
+        <p id="reset-status" class="mt-3 text-2xs text-faint" role="status"></p>
+      </div>
+    </div>
+  </section>
+
+  <Section eyebrow="Choose a role" title="Six entry points into the same dataset" borderless>
+    <ProductDemoLauncher client:visible />
+  </Section>
+
+  <Section
+    eyebrow="Guided tour"
+    title="Eight steps through the product"
+    body="Each step opens a real screen. Nothing here is a screenshot, and every interaction writes to the same in-browser dataset — so a deal you move in step three is still moved when you reach the forecast in step five."
+  >
+    <ol class="grid gap-3 sm:grid-cols-2">
+      {
+        guidedTour.map((item) => (
+          <li>
+            <a
+              href={item.route}
+              class="group flex h-full gap-3 rounded-xl border border-border-subtle bg-surface p-4 transition-colors hover:border-border-strong hover:shadow-sm"
+            >
+              <span class="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand-subtle text-xs font-semibold text-brand-fg">
+                {item.step}
+              </span>
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold text-fg">{item.title}</span>
+                <span class="mt-1 block text-2xs leading-relaxed text-muted">{item.body}</span>
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+  </Section>
+
+  <!-- ================================================ HONESTY SECTION -->
+  <Section
+    eyebrow="What is not real"
+    title="Simulated, and clearly labelled as simulated"
+    body="A demonstration that hides its limits teaches the wrong thing. Everything below is either a local simulation or a documented placeholder, and the interface says so wherever it appears."
+  >
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        simulated.map((notice) => (
+          <div class="flex gap-2.5 rounded-lg border border-dashed border-border-strong bg-surface p-3.5">
+            <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-subtle" aria-hidden="true" />
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-fg">{notice.short}</p>
+              <p class="mt-1 text-2xs leading-relaxed text-muted">{notice.long}</p>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="mt-5 grid gap-4 rounded-xl border border-border-subtle bg-inset p-5 sm:grid-cols-3">
+      <div>
+        <p class="text-xs font-semibold text-fg">Where the data lives</p>
+        <p class="mt-1 text-2xs leading-relaxed text-muted">
+          In this browser’s local storage. Nothing is transmitted, and clearing site data removes it completely.
+        </p>
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-fg">What reset does</p>
+        <p class="mt-1 text-2xs leading-relaxed text-muted">
+          Restores the seeded baseline dataset. Your own records created during the demo are discarded.
+        </p>
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-fg">What happens next</p>
+        <p class="mt-1 text-2xs leading-relaxed text-muted">
+          The same interfaces will be backed by a REST API. Service contracts are defined, so the swap is a data-layer
+          change rather than a rewrite.
+        </p>
+      </div>
+    </div>
+
+    <p class="mt-4 text-2xs leading-relaxed text-faint">{demoPolicy.publicDemoNotice}</p>
+  </Section>
+</BaseLayout>
+
+<script is:inline>
+  (() => {
+    const button = document.getElementById('reset-demo');
+    const status = document.getElementById('reset-status');
+    if (!button || !status) return;
+
+    button.addEventListener('click', () => {
+      // The demo dataset is namespaced so a reset cannot touch real preferences.
+      const prefixes = ['crm.demo.', 'crm.mockdb.', 'crm.recentviews.'];
+      let removed = 0;
+      try {
+        const keys = Object.keys(localStorage);
+        for (const key of keys) {
+          if (prefixes.some((prefix) => key.startsWith(prefix))) {
+            localStorage.removeItem(key);
+            removed += 1;
+          }
+        }
+      } catch {
+        status.textContent = 'Storage is unavailable in this browser, so there was nothing to reset.';
+        return;
+      }
+      status.textContent = `Demo data reset — ${removed} stored item${removed === 1 ? '' : 's'} cleared. Reload to start from the seeded baseline.`;
+    });
+  })();
+</script>

@@ -1,0 +1,18 @@
+{
+  "name": "@crm/localization",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "i18n resources, RTL helpers and locale-aware formatters (dates, numbers, currency, phone, address).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@crm/configuration": "*",
+    "i18next": "^26.4.4"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
