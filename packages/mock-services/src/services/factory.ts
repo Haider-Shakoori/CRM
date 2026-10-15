@@ -107,6 +107,8 @@ export interface CrudOptions<T> {
   defaultSort?: Array<{ field: string; direction: 'asc' | 'desc' }>;
   /** Applied on create when the caller omits them. */
   defaultsFor?: (input: unknown, db: MockDb) => Partial<T>;
+  /** Active organization for records owned by a CRM organization. Server-side enforcement is still required. */
+  getActiveOrganizationId?: () => Id;
   /** Server-owned fields stripped from create input. */
   serverOwned?: string[];
   /** Validate before writing. Returning a string rejects the write. */
@@ -143,7 +145,13 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
     defaultSort: options.defaultSort ?? [{ field: 'updatedAt', direction: 'desc' }],
   };
 
-  const all = () => db.all(collection) as unknown as T[];
+  // Explicit opt-in prevents ID-based access and bulk operations from bypassing list filters.
+  // This is mock/demo defense-in-depth, NOT a production authorization boundary.
+  const inScope = (record: T | undefined): record is T =>
+    record !== undefined &&
+    (!options.getActiveOrganizationId ||
+      (record as T & { organizationId?: Id }).organizationId === options.getActiveOrganizationId());
+  const all = () => (db.all(collection) as unknown as T[]).filter(inScope);
 
   return {
     async list(query: ListQuery = {}): Promise<Paginated<T>> {
@@ -162,7 +170,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
     async get(id: Id): Promise<Result<T>> {
       await delay(`get:${String(collection)}:${id}`, { latency: { min: 40, max: 140 } });
       const record = (db.get(collection, id) as unknown as T | undefined) ?? undefined;
-      if (!record) {
+      if (!inScope(record)) {
         return err<T>('not_found', `${options.label} not found. The record may have been deleted.`, { traceId: `nf-${id}` });
       }
       return ok(record);
@@ -188,6 +196,8 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
 
       const record = {
         ...stamped,
+        // A caller must never be allowed to assign a new record to another organization.
+        ...(options.getActiveOrganizationId ? { organizationId: options.getActiveOrganizationId() } : {}),
         id: (stamped as { id?: Id }).id ?? nextId(String(collection).slice(0, 4)),
         createdAt: nowIso(),
         updatedAt: nowIso(),
@@ -206,7 +216,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
       await delay(`update:${String(collection)}`, writeOptions);
 
       const existing = db.get(collection, id) as unknown as T | undefined;
-      if (!existing) {
+      if (!inScope(existing)) {
         return err<T>('not_found', `${options.label} not found.`);
       }
 
@@ -220,6 +230,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
 
       const patch = { ...(input as Record<string, unknown>) };
       delete patch.expectedUpdatedAt;
+      if (options.getActiveOrganizationId) delete patch.organizationId;
 
       const updated = { ...existing, ...patch, id, updatedAt: nowIso() } as T;
       db.put(collection, updated as never);
@@ -230,7 +241,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
       const failure = simulatedFailure<{ id: Id }>(writeOptions);
       if (failure) return failure;
       await delay(`remove:${String(collection)}`, writeOptions);
-      if (!db.get(collection, id)) {
+      if (!inScope(db.get(collection, id) as unknown as T | undefined)) {
         return err<{ id: Id }>('not_found', `${options.label} not found.`);
       }
       db.remove(collection, id);
@@ -242,7 +253,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
       const failures: Array<{ id: Id; reason: string }> = [];
       const removable: Id[] = [];
       for (const id of ids) {
-        if (db.get(collection, id)) removable.push(id);
+        if (inScope(db.get(collection, id) as unknown as T | undefined)) removable.push(id);
         else failures.push({ id, reason: 'Record not found' });
       }
       const removed = db.removeMany(collection, removable);
@@ -252,7 +263,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
     async archive(id: Id): Promise<Result<T>> {
       await delay(`archive:${String(collection)}`);
       const existing = db.get(collection, id) as unknown as T | undefined;
-      if (!existing) return err<T>('not_found', `${options.label} not found.`);
+      if (!inScope(existing)) return err<T>('not_found', `${options.label} not found.`);
       const archived = { ...existing, archivedAt: nowIso(), updatedAt: nowIso() } as T;
       db.put(collection, archived as never);
       return ok(archived);
@@ -261,7 +272,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
     async restore(id: Id): Promise<Result<T>> {
       await delay(`restore:${String(collection)}`);
       const existing = db.get(collection, id) as unknown as T | undefined;
-      if (!existing) return err<T>('not_found', `${options.label} not found.`);
+      if (!inScope(existing)) return err<T>('not_found', `${options.label} not found.`);
       const restored = { ...existing, archivedAt: undefined, updatedAt: nowIso() } as T;
       db.put(collection, restored as never);
       return ok(restored);
@@ -274,11 +285,13 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
       let succeeded = 0;
       for (const id of ids) {
         const existing = db.get(collection, id) as unknown as T | undefined;
-        if (!existing) {
+        if (!inScope(existing)) {
           failures.push({ id, reason: 'Record not found' });
           continue;
         }
-        db.put(collection, { ...existing, ...patch, id, updatedAt: nowIso() } as never);
+        const safePatch = { ...patch };
+        if (options.getActiveOrganizationId) delete safePatch.organizationId;
+        db.put(collection, { ...existing, ...safePatch, id, updatedAt: nowIso() } as never);
         succeeded += 1;
       }
       return ok({ requested: ids.length, succeeded, failed: failures.length, failures });
