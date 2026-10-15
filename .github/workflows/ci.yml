@@ -2,9 +2,9 @@ name: CRM CI
 
 on:
   push:
-    branches: [main, phase-0-security-ci-architecture]
+    branches: [main, phase-0-security-ci-architecture, phase-1-laravel-saas-foundation]
   pull_request:
-    branches: [main]
+    branches: [main, phase-0-security-ci-architecture]
   workflow_dispatch:
 
 permissions:
@@ -25,18 +25,12 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Install dependencies from lockfile
-        run: npm ci
-      - name: Typecheck all workspaces
-        run: npm run typecheck
-      - name: Lint
-        run: npm run lint
-      - name: Run all Vitest projects (unit and DOM)
-        run: npx vitest run
-      - name: Build all three applications
-        run: npm run build
-      - name: Validate built website links
-        run: node scripts/check-links.mjs apps/website/dist
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npx vitest run
+      - run: npm run build
+      - run: node scripts/check-links.mjs apps/website/dist
 
   browser:
     name: Playwright Chromium smoke
@@ -49,15 +43,11 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Install dependencies from lockfile
-        run: npm ci
-      - name: Install Chromium and dependencies
-        run: npx playwright install --with-deps chromium
-      - name: Run real-browser smoke suite
-        run: npm run test:e2e
-      - name: Upload failure traces and screenshots
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
         if: failure()
-        uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: |
@@ -65,3 +55,57 @@ jobs:
             test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  laravel:
+    name: Laravel PostgreSQL tenancy tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: crm_test
+          POSTGRES_USER: crm
+          POSTGRES_PASSWORD: crm_ci_password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U crm -d crm_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_ENV: testing
+      APP_DEBUG: 'true'
+      APP_KEY: base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_DATABASE: crm_test
+      DB_USERNAME: crm
+      DB_PASSWORD: crm_ci_password
+      SESSION_DRIVER: array
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, dom, xml, curl, fileinfo, pdo_pgsql, intl, zip
+          tools: composer:v2
+          coverage: none
+      - name: Validate Composer manifest
+        run: composer validate --no-check-publish
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: PHP syntax lint
+        run: |
+          find app bootstrap config database routes tests -type f -name '*.php' -print0 | xargs -0 -n 1 php -l
+      - name: Fresh PostgreSQL migration
+        run: php artisan migrate:fresh --force
+      - name: Tenant isolation and auth feature tests
+        run: php artisan test --colors=never
