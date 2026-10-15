@@ -279,7 +279,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
   }
 
   function pipelineSummaryFor(pipelineId: Id): PipelineSummary {
-    const pipeline = db.state.pipelines[pipelineId];
+    const pipeline = owned(db.state.pipelines[pipelineId]);
     const scoped = dealsInScope().filter((deal) => deal.pipelineId === pipelineId);
     const totals = computePipelineTotals(scoped);
     const currency = pipeline?.currency ?? 'USD';
@@ -342,7 +342,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     const deal = owned(db.state.deals[dealId]);
     if (!deal) return err('not_found', 'That deal no longer exists.');
 
-    const pipeline = db.state.pipelines[deal.pipelineId];
+    const pipeline = owned(db.state.pipelines[deal.pipelineId]);
     const stage = pipeline?.stages.find((candidate) => candidate.id === toStageId);
     if (!pipeline || !stage) return err('validation_failed', 'That stage does not belong to this deal’s pipeline.');
 
@@ -646,7 +646,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     enrollInSequence: async (ids, sequenceId) => {
       await delay('lead-enroll');
-      const sequence = db.state.sequences[sequenceId];
+      const sequence = owned(db.state.sequences[sequenceId]);
       if (!sequence) return err<BulkActionOutcome>('not_found', 'That sequence could not be found.');
       db.put('sequences', { ...sequence, enrolledCount: sequence.enrolledCount + ids.length, activeCount: sequence.activeCount + ids.length });
       return ok({ requested: ids.length, succeeded: ids.length, failed: 0, failures: [] });
@@ -761,13 +761,13 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     addToCampaign: async (ids, campaignId) => {
       await delay('contact-campaign');
-      const campaign = db.state.campaigns[campaignId];
+      const campaign = owned(db.state.campaigns[campaignId]);
       if (campaign) db.put('campaigns', { ...campaign, audienceSize: campaign.audienceSize + ids.length });
       return ok({ requested: ids.length, succeeded: ids.length, failed: 0, failures: [] });
     },
     addToSegment: async (ids, segmentId) => {
       await delay('contact-segment');
-      const segment = db.state.segments[segmentId];
+      const segment = owned(db.state.segments[segmentId]);
       if (segment) db.put('segments', { ...segment, memberCount: segment.memberCount + ids.length, memberIds: [...(segment.memberIds ?? []), ...ids] });
       return ok({ requested: ids.length, succeeded: ids.length, failed: 0, failures: [] });
     },
@@ -1063,7 +1063,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       return runQuery(records, query, { searchFields: ['name'], defaultSort: [{ field: 'sortOrder', direction: 'asc' }] });
     },
     get: async (id) => {
-      const pipeline = db.state.pipelines[id];
+      const pipeline = owned(db.state.pipelines[id]);
       return pipeline ? ok(pipeline) : err('not_found', 'Pipeline not found.');
     },
     create: async (input) => {
@@ -1074,7 +1074,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     update: async (id, input) => {
       await delay('pipeline-update');
-      const existing = db.state.pipelines[id];
+      const existing = owned(db.state.pipelines[id]);
       if (!existing) return err<import('@crm/shared-types').Pipeline>('not_found', 'Pipeline not found.');
       const updated = { ...existing, ...(input as object), id, updatedAt: new Date().toISOString() } as import('@crm/shared-types').Pipeline;
       db.put('pipelines', updated);
@@ -1089,7 +1089,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     createStage: async (pipelineId, input) => {
       await delay('stage-create');
-      const pipeline = db.state.pipelines[pipelineId];
+      const pipeline = owned(db.state.pipelines[pipelineId]);
       if (!pipeline) return err<import('@crm/shared-types').Stage>('not_found', 'Pipeline not found.');
       const stage = { ...(input as unknown as object), id: `${pipelineId}-${Date.now().toString(36)}`, pipelineId } as unknown as import('@crm/shared-types').Stage;
       db.put('pipelines', { ...pipeline, stages: [...pipeline.stages, stage], updatedAt: new Date().toISOString() });
@@ -1097,7 +1097,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     updateStage: async (pipelineId, stageId, input) => {
       await delay('stage-update');
-      const pipeline = db.state.pipelines[pipelineId];
+      const pipeline = owned(db.state.pipelines[pipelineId]);
       if (!pipeline) return err<import('@crm/shared-types').Stage>('not_found', 'Pipeline not found.');
       let updated: import('@crm/shared-types').Stage | undefined;
       const stages = pipeline.stages.map((stage) => {
@@ -1111,7 +1111,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     reorderStages: async (pipelineId, orderedIds) => {
       await delay('stage-reorder');
-      const pipeline = db.state.pipelines[pipelineId];
+      const pipeline = owned(db.state.pipelines[pipelineId]);
       if (!pipeline) return err<import('@crm/shared-types').Stage[]>('not_found', 'Pipeline not found.');
       const stages = orderedIds
         .map((id, index) => {
@@ -1124,7 +1124,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     removeStage: async (pipelineId, stageId, moveDealsTo) => {
       await delay('stage-remove');
-      const pipeline = db.state.pipelines[pipelineId];
+      const pipeline = owned(db.state.pipelines[pipelineId]);
       if (!pipeline) return err<{ moved: number }>('not_found', 'Pipeline not found.');
       const affected = dealsInScope().filter((deal) => deal.stageId === stageId);
       // Reassign before removing, so no deal is left pointing at a stage that no longer exists.
@@ -1139,7 +1139,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       for (const pipeline of Object.values(db.state.pipelines)) {
         db.put('pipelines', { ...pipeline, isDefault: pipeline.id === pipelineId });
       }
-      const updated = db.state.pipelines[pipelineId];
+      const updated = owned(db.state.pipelines[pipelineId]);
       return updated ? ok(updated) : err('not_found', 'Pipeline not found.');
     },
   };
@@ -3140,7 +3140,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     addLineItem: async (quoteId, item) => {
       await delay(`quote-line-add:${quoteId}`, { latency: { min: 90, max: 200 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       const line: QuoteLineItem = { ...item, id: nextId('qli'), sortOrder: quote.lineItems.length };
       return ok(writeQuoteTotals(quote, [...quote.lineItems, line]));
@@ -3148,7 +3148,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     updateLineItem: async (quoteId, itemId, patch) => {
       await delay(`quote-line-update:${itemId}`, { latency: { min: 90, max: 200 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       if (!quote.lineItems.some((line) => line.id === itemId)) return err<Quote>('not_found', 'Line item not found.');
       const lines = quote.lineItems.map((line) => (line.id === itemId ? { ...line, ...patch, id: line.id } : line));
@@ -3157,7 +3157,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     removeLineItem: async (quoteId, itemId) => {
       await delay(`quote-line-remove:${itemId}`);
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       const lines = quote.lineItems.filter((line) => line.id !== itemId);
       return ok(writeQuoteTotals(quote, lines.map((line, index) => ({ ...line, sortOrder: index }))));
@@ -3165,7 +3165,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     applyOrderDiscount: async (quoteId, percent, reason) => {
       await delay(`quote-discount:${quoteId}`, { latency: { min: 90, max: 200 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       const priced = writeQuoteTotals(quote, quote.lineItems, percent);
       const withReason: Quote = {
@@ -3180,14 +3180,14 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     recalculate: async (quoteId) => {
       await delay(`quote-recalc:${quoteId}`, { latency: { min: 60, max: 140 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       return ok(writeQuoteTotals(quote, quote.lineItems));
     },
 
     submitForApproval: async (quoteId) => {
       await delay(`quote-submit:${quoteId}`, { latency: { min: 140, max: 300 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       if (quote.lineItems.length === 0) return err<Quote>('validation_failed', 'Add at least one line item before submitting for approval.');
       const steps = buildApprovalSteps(quote);
@@ -3205,7 +3205,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     decideApproval: async (quoteId, stepId, decision, comment) => {
       await delay(`quote-approve:${stepId}`, { latency: { min: 120, max: 260 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       if (!quote.approvalSteps.some((step) => step.id === stepId)) return err<Quote>('not_found', 'Approval step not found.');
       const steps = quote.approvalSteps.map((step) =>
@@ -3232,7 +3232,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
      */
     revise: async (quoteId) => {
       await delay(`quote-revise:${quoteId}`, { latency: { min: 200, max: 420 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       const clone: Quote = {
         ...quote,
@@ -3266,7 +3266,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     /** Delivery is simulated and the returned state says so. Nothing is transmitted. */
     markSent: async (quoteId) => {
       await delay(`quote-send:${quoteId}`, { latency: { min: 180, max: 360 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       const updated: Quote = {
         ...quote,
@@ -3284,7 +3284,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     accept: async (quoteId) => {
       await delay(`quote-accept:${quoteId}`, { latency: { min: 160, max: 320 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       const updated: Quote = {
         ...quote,
@@ -3302,7 +3302,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     decline: async (quoteId, reason) => {
       await delay(`quote-decline:${quoteId}`, { latency: { min: 160, max: 320 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<Quote>('not_found', 'Quote not found.');
       const updated: Quote = {
         ...quote,
@@ -3321,7 +3321,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
      */
     convertToOrder: async (quoteId) => {
       await delay(`quote-to-order:${quoteId}`, { latency: { min: 300, max: 620 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<{ quote: Quote; order: Order }>('not_found', 'Quote not found.');
       if (quote.status !== 'accepted' && quote.status !== 'approved') {
         return err<{ quote: Quote; order: Order }>('validation_failed', 'Only an accepted or approved quote can become an order.');
@@ -3371,7 +3371,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     convertToContract: async (quoteId, termMonths) => {
       await delay(`quote-to-contract:${quoteId}`, { latency: { min: 320, max: 660 } });
-      const quote = db.state.quotes[quoteId];
+      const quote = owned(db.state.quotes[quoteId]);
       if (!quote) return err<{ quote: Quote; contract: Contract }>('not_found', 'Quote not found.');
       if (quote.status !== 'accepted' && quote.status !== 'approved') {
         return err<{ quote: Quote; contract: Contract }>('validation_failed', 'Only an accepted or approved quote can become a contract.');
@@ -3440,7 +3440,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     activate: async (id) => {
       await delay(`order-activate:${id}`, { latency: { min: 200, max: 420 } });
-      const order = db.state.orders[id];
+      const order = owned(db.state.orders[id]);
       if (!order) return err<Order>('not_found', 'Order not found.');
       if (order.status === 'cancelled') return err<Order>('validation_failed', 'A cancelled order cannot be activated.');
       const updated: Order = {
@@ -3455,7 +3455,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     cancel: async (id, reason) => {
       await delay(`order-cancel:${id}`, { latency: { min: 160, max: 320 } });
-      const order = db.state.orders[id];
+      const order = owned(db.state.orders[id]);
       if (!order) return err<Order>('not_found', 'Order not found.');
       const updated: Order = {
         ...order,
@@ -3470,7 +3470,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     recordPayment: async (id, amount, method) => {
       await delay(`order-payment:${id}`, { latency: { min: 200, max: 420 } });
-      const order = db.state.orders[id];
+      const order = owned(db.state.orders[id]);
       if (!order) return err<Order>('not_found', 'Order not found.');
       if (amount <= 0) return err<Order>('validation_failed', 'Enter an amount greater than zero.');
       const paid = order.paidAmount.amount + amount;
@@ -3534,7 +3534,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     renew: async (id, patch) => {
       await delay(`contract-renew:${id}`, { latency: { min: 220, max: 460 } });
-      const contract = db.state.contracts[id];
+      const contract = owned(db.state.contracts[id]);
       if (!contract) return err<Contract>('not_found', 'Contract not found.');
       if (contract.status === 'renewed') {
         return err<Contract>('validation_failed', 'This contract was already renewed. Open the renewal linked from this record.');
@@ -3590,7 +3590,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     terminate: async (id, reason) => {
       await delay(`contract-terminate:${id}`, { latency: { min: 180, max: 380 } });
-      const contract = db.state.contracts[id];
+      const contract = owned(db.state.contracts[id]);
       if (!contract) return err<Contract>('not_found', 'Contract not found.');
       if (!reason.trim()) {
         return err<Contract>('validation_failed', 'Record why the contract is being terminated.', {
@@ -3615,7 +3615,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     amendment: async (id, patch) => {
       await delay(`contract-amend:${id}`, { latency: { min: 180, max: 380 } });
-      const contract = db.state.contracts[id];
+      const contract = owned(db.state.contracts[id]);
       if (!contract) return err<Contract>('not_found', 'Contract not found.');
       const amendable: Contract['status'][] = ['draft', 'in_review', 'awaiting_signature', 'active', 'expiring_soon'];
       if (!amendable.includes(contract.status)) {
@@ -3680,7 +3680,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     markPaid: async (id, paidDate) => {
       await delay(`invoice-paid:${id}`, { latency: { min: 180, max: 380 } });
-      const invoice = db.state.invoices[id];
+      const invoice = owned(db.state.invoices[id]);
       if (!invoice) return err<InvoiceRecord>('not_found', 'Invoice not found.');
       if (invoice.status === 'payment_received') {
         return err<InvoiceRecord>('validation_failed', 'This invoice is already marked as paid.');
@@ -3709,7 +3709,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     void: async (id, reason) => {
       await delay(`invoice-void:${id}`, { latency: { min: 160, max: 340 } });
-      const invoice = db.state.invoices[id];
+      const invoice = owned(db.state.invoices[id]);
       if (!invoice) return err<InvoiceRecord>('not_found', 'Invoice not found.');
       if (!reason.trim()) {
         return err<InvoiceRecord>('validation_failed', 'Record why the invoice is being voided.', {
@@ -3737,7 +3737,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
     recordPayment: async (id, amount) => {
       await delay(`invoice-payment:${id}`, { latency: { min: 200, max: 420 } });
-      const invoice = db.state.invoices[id];
+      const invoice = owned(db.state.invoices[id]);
       if (!invoice) return err<InvoiceRecord>('not_found', 'Invoice not found.');
       if (!Number.isFinite(amount) || amount <= 0) {
         return err<InvoiceRecord>('validation_failed', 'Enter an amount greater than zero.', {
@@ -3777,7 +3777,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       return runQuery(filtered, query, { searchFields: ['name', 'description'], facetField: 'extension', defaultSort: [{ field: 'updatedAt', direction: 'desc' }] });
     },
     get: async (id) => {
-      const document = db.state.documents[id];
+      const document = owned(db.state.documents[id]);
       return document ? ok(document) : err('not_found', 'Document not found.');
     },
     upload: async (files, folderId) => {
@@ -3827,7 +3827,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       return ok(tasks);
     },
     update: async (id, input) => {
-      const document = db.state.documents[id];
+      const document = owned(db.state.documents[id]);
       if (!document) return err<DocumentFile>('not_found', 'Document not found.');
       const updated = { ...document, ...(input as object), id, updatedAt: new Date().toISOString() } as DocumentFile;
       db.put('documents', updated);
@@ -3838,7 +3838,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       return ok({ id });
     },
     versions: async (id) => {
-      const document = db.state.documents[id];
+      const document = owned(db.state.documents[id]);
       if (!document) {
         return { items: [], meta: { page: 1, pageSize: 25, total: 0, totalPages: 1, hasNext: false, hasPrev: false } };
       }
@@ -3857,7 +3857,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     restoreVersion: async (id, versionId) => {
       await delay('doc-restore');
-      const document = db.state.documents[id];
+      const document = owned(db.state.documents[id]);
       if (!document) return err<DocumentFile>('not_found', 'Document not found.');
       // Restoring produces a new version rather than destroying history.
       const updated: DocumentFile = { ...document, version: document.versionCount + 1, versionCount: document.versionCount + 1, updatedAt: new Date().toISOString() };
@@ -3866,7 +3866,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       return ok(updated);
     },
     share: async (id, shareOptions) => {
-      const document = db.state.documents[id];
+      const document = owned(db.state.documents[id]);
       if (!document) return err<DocumentFile>('not_found', 'Document not found.');
       const updated = { ...document, visibility: shareOptions.visibility as DocumentFile['visibility'], updatedAt: new Date().toISOString() };
       db.put('documents', updated);
@@ -3874,7 +3874,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     signatureWorkflow: async (id) => {
       await delay(`signature:${id}`, { latency: { min: 200, max: 440 } });
-      const document = db.state.documents[id];
+      const document = owned(db.state.documents[id]);
       if (!document) return err('not_found', 'Document not found.');
       const signers = [
         { id: 's1', name: 'Customer signatory', email: 'signatory@customer.example', kind: 'customer' as const, order: 1, required: true, status: document.signatureState === 'completed_simulated' ? ('signed' as const) : document.signatureState === 'sent_simulated' ? ('sent' as const) : ('pending' as const), signedAt: document.signatureState === 'completed_simulated' ? toDateTimeString(DATASET_EPOCH) : undefined },
