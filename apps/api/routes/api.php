@@ -23,6 +23,13 @@ Route::middleware('auth:sanctum')->group(function () {
                 'timezone' => $organization->timezone,
             ]]);
         });
-        Route::apiResource('leads', LeadController::class);
+        Route::get('/leads', [LeadController::class, 'index']);
+        Route::get('/leads/{id}', [LeadController::class, 'show']);
+        Route::middleware('organization.write')->group(function () {
+            Route::post('/leads', [LeadController::class, 'store']);
+            Route::patch('/leads/{id}', [LeadController::class, 'update']);
+            Route::put('/leads/{id}', [LeadController::class, 'update']);
+            Route::delete('/leads/{id}', [LeadController::class, 'destroy']);
+        });
     });
 });
