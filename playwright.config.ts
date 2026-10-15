@@ -22,19 +22,19 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'npm run dev:website -- --host 127.0.0.1',
+      command: 'npm run dev --workspace @crm/website -- --host 127.0.0.1',
       url: 'http://127.0.0.1:4321/',
       timeout: 120_000,
       reuseExistingServer: !inCI,
     },
     {
-      command: 'npm run dev:crm -- --host 127.0.0.1',
+      command: 'npm run dev --workspace @crm/app -- --host 127.0.0.1',
       url: 'http://127.0.0.1:5173/app/home',
       timeout: 120_000,
       reuseExistingServer: !inCI,
     },
     {
-      command: 'npm run dev:admin -- --host 127.0.0.1',
+      command: 'npm run dev --workspace @crm/platform-admin -- --host 127.0.0.1',
       url: 'http://127.0.0.1:5174/',
       timeout: 120_000,
       reuseExistingServer: !inCI,
