@@ -30,12 +30,12 @@ Route::middleware('auth:sanctum')->group(function () {
             ]]);
         });
         Route::get('/leads', [LeadController::class, 'index']);
-        Route::get('/leads/{id}', [LeadController::class, 'show']);
+        Route::get('/leads/{id}', [LeadController::class, 'show'])->whereUuid('id');
         Route::middleware('organization.write')->group(function () {
             Route::post('/leads', [LeadController::class, 'store']);
-            Route::patch('/leads/{id}', [LeadController::class, 'update']);
-            Route::put('/leads/{id}', [LeadController::class, 'update']);
-            Route::delete('/leads/{id}', [LeadController::class, 'destroy']);
+            Route::patch('/leads/{id}', [LeadController::class, 'update'])->whereUuid('id');
+            Route::put('/leads/{id}', [LeadController::class, 'update'])->whereUuid('id');
+            Route::delete('/leads/{id}', [LeadController::class, 'destroy'])->whereUuid('id');
         });
     });
 });
