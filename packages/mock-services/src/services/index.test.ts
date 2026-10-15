@@ -1256,13 +1256,13 @@ describe('tenant ownership regression guards (phase 0)', () => {
         localTickets.filter((ticket) => !['resolved', 'closed'].includes(ticket.status)).length,
       );
     }
-    const policies = await services.tickets.slaPolicies({ pageSize: 100 });
+    const policies = await services.tickets.slaPolicies();
     expect(policies.items.every((policy) => policy.organizationId === activeId)).toBe(true);
-    const categories = await services.tickets.categories({ pageSize: 100 });
+    const categories = await services.tickets.categories();
     expect(categories.items.every((category) => category.organizationId === activeId)).toBe(true);
     expect((await services.tickets.messages(foreign.id)).items).toEqual([]);
     expect((await services.tickets.reply(foreign.id, 'Not allowed')).ok).toBe(false);
-    expect((await services.tickets.resolve(foreign.id, 'Not allowed')).ok).toBe(false);
+    expect((await services.tickets.resolve(foreign.id, 'Not allowed', 'Not allowed')).ok).toBe(false);
     expect((await services.tickets.reopen(foreign.id, 'Not allowed')).ok).toBe(false);
     expect(db.state.tickets[foreign.id]).toEqual(snapshot);
   });
