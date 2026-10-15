@@ -653,7 +653,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     sources: async () => {
       await delay('lead-sources');
-      const sources = Object.values(db.state.leadSources).filter((source) => source.organizationId === currentOrganizationId()).map((source) => {
+      const sources = Object.values(db.state.leadSources).map((source) => {
         const related = scopedRecords<Lead>('leads').filter((lead) => lead.leadSourceId === source.id);
         const converted = related.filter((lead) => lead.status === 'converted').length;
         return { ...source, leadCount: related.length, conversionRate: related.length > 0 ? Number(((converted / related.length) * 100).toFixed(1)) : 0 };
