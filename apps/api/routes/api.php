@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\InvitationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -12,7 +13,9 @@ Route::get('/health', fn () => response()->json([
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::post('/invitations/accept', [InvitationController::class, 'accept'])->middleware('verified');
     Route::middleware(['verified', 'organization'])->group(function () {
+        Route::post('/organizations/invitations', [InvitationController::class, 'store']);
         Route::get('/organizations/current', function (Request $request) {
             $organization = $request->attributes->get('crm_organization');
             return response()->json(['ok' => true, 'data' => [
