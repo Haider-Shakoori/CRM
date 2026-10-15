@@ -10,7 +10,7 @@ class Tenant extends Model
 {
     use HasUuids;
 
-    protected $fillable = ['name', 'slug', 'status'];
+    protected $fillable = ['name', 'slug', 'status', 'seat_limit'];
 
     public function organizations(): HasMany
     {

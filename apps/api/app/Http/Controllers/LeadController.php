@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Lead;
+use App\Support\AuditTrail;
 use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -62,6 +63,7 @@ final class LeadController
             'version' => 1,
         ]);
         $lead->save();
+        AuditTrail::current($request, 'lead.created', 'lead', $lead->id);
 
         return response()->json(['ok' => true, 'data' => $lead], 201);
     }
@@ -89,13 +91,15 @@ final class LeadController
             return $this->conflict();
         }
 
+        AuditTrail::current($request, 'lead.updated', 'lead', $id, ['version' => $lead->version + 1]);
         return response()->json(['ok' => true, 'data' => Lead::query()->findOrFail($id)]);
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
         $lead = Lead::query()->findOrFail($id);
         $lead->delete();
+        AuditTrail::current($request, 'lead.deleted', 'lead', $id);
 
         return response()->json(['ok' => true, 'data' => ['id' => $id]]);
     }

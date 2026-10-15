@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\OrganizationInvitation;
 use App\Models\OrganizationMembership;
 use App\Models\User;
+use App\Models\Tenant;
+use App\Support\SeatUsage;
+use App\Support\AuditTrail;
 use App\Notifications\OrganizationInvitationNotification;
 use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
@@ -58,6 +61,7 @@ final class InvitationController
         );
 
         $organization = $request->attributes->get('crm_organization');
+        AuditTrail::current($request, 'invitation.sent', 'invitation', $invitation->id, ['role' => $data['role']]);
         Notification::route('mail', $email)->notify(
             new OrganizationInvitationNotification($organization->name, $token)
         );
@@ -76,7 +80,7 @@ final class InvitationController
         $data = $request->validate(['token' => ['required', 'string', 'min:32', 'max:256']]);
         $user = $request->user();
 
-        $result = DB::transaction(function () use ($data, $user): ?OrganizationMembership {
+        $result = DB::transaction(function () use ($data, $user): OrganizationMembership|string|null {
             $invitation = OrganizationInvitation::query()
                 ->where('token_hash', hash('sha256', $data['token']))
                 ->whereNull('accepted_at')
@@ -91,13 +95,30 @@ final class InvitationController
                 return null;
             }
 
+            // A tenant-level row lock serializes concurrent accepts and prevents seat over-allocation.
+            $tenant = Tenant::query()->whereKey($invitation->organization->tenant_id)
+                ->lockForUpdate()->firstOrFail();
+            if ($tenant->seat_limit !== null &&
+                !SeatUsage::hasSeat($tenant->id, $user->id) &&
+                SeatUsage::activeSeatCount($tenant->id) >= $tenant->seat_limit) {
+                return 'seat_limit';
+            }
+
             $membership = OrganizationMembership::updateOrCreate(
                 ['user_id' => $user->id, 'organization_id' => $invitation->organization_id],
                 ['role' => $invitation->role, 'status' => 'active']
             );
             $invitation->forceFill(['accepted_at' => now()])->save();
+            AuditTrail::explicit($tenant->id, $invitation->organization_id, $user->id,
+                'invitation.accepted', 'invitation', $invitation->id, ['role' => $membership->role]);
             return $membership;
         });
+
+        if ($result === 'seat_limit') {
+            return response()->json(['ok' => false, 'error' => [
+                'code' => 'entitlement_missing', 'message' => 'No user seats are available.', 'retryable' => false,
+            ]], 409);
+        }
 
         if (!$result) {
             return response()->json(['ok' => false, 'error' => [
