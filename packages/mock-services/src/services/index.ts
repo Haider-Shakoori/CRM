@@ -84,13 +84,6 @@ const asRecords = <T>(database: MockDb, collection: import('../lib/store').Colle
 
 /* ------------------------------------------------------------- organisation */
 
-/** Resolve the organization a request belongs to. Defaults to the first seeded tenant. */
-function resolveOrganizationId(db: MockDb, explicit?: Id): Id {
-  if (explicit) return explicit;
-  const organizations = Object.values(db.state.organizations);
-  return organizations[0]?.id ?? 'org-vertex';
-}
-
 /* --------------------------------------------------------- local pricing engine */
 
 /**
@@ -217,41 +210,47 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
   const leads = createCrud<Lead>(db, 'leads', {
     label: 'Lead',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['reference', 'firstName', 'lastName', 'companyName', 'emails.0.value', 'jobTitle'],
     facetField: 'status',
     defaultSort: [{ field: 'createdAt', direction: 'desc' }],
   });
   const contacts = createCrud<Contact>(db, 'contacts', {
     label: 'Contact',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['reference', 'firstName', 'lastName', 'displayName', 'accountName', 'emails.0.value', 'jobTitle'],
     facetField: 'lifecycleStage',
   });
   const accounts = createCrud<Account>(db, 'accounts', {
     label: 'Account',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['reference', 'name', 'industryLabel', 'domains.0'],
     facetField: 'health',
     defaultSort: [{ field: 'name', direction: 'asc' }],
   });
   const deals = createCrud<Deal>(db, 'deals', {
     label: 'Deal',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['reference', 'name', 'accountName', 'primaryContactName'],
     facetField: 'stageId',
   });
   const activities = createCrud<Activity>(db, 'activities', {
     label: 'Activity',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['subject', 'body', 'ownerName'],
     facetField: 'kind',
   });
   const tickets = createCrud<Ticket>(db, 'tickets', {
     label: 'Ticket',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['reference', 'subject', 'accountName', 'requesterName'],
     facetField: 'status',
   });
 
   /* --------------------------------------------------------------- helpers */
 
-  const ticketsInScope = () => db.all('tickets') as unknown as Ticket[];
-  const dealsInScope = () => db.all('deals') as unknown as Deal[];
+  const ticketsInScope = () => tickets.raw();
+  const dealsInScope = () => deals.raw();
 
   /** Recompute every deal's staleness and days-in-stage from the pipeline settings. */
   function refreshDealDerivedFields(): void {
@@ -329,11 +328,11 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
   ): Promise<Result<{ deal: Deal; summary: PipelineSummary }>> {
     await delay(`deal-move:${dealId}`);
     const deal = db.state.deals[dealId];
-    if (!deal) return err('not_found', 'That deal no longer exists.');
+    if (!deal || deal.organizationId !== currentOrganizationId()) return err('not_found', 'That deal no longer exists.');
 
     const pipeline = db.state.pipelines[deal.pipelineId];
     const stage = pipeline?.stages.find((candidate) => candidate.id === toStageId);
-    if (!pipeline || !stage) return err('validation_failed', 'That stage does not belong to this deal’s pipeline.');
+    if (!pipeline || pipeline.organizationId !== currentOrganizationId() || !stage) return err('validation_failed', 'That stage does not belong to this deal’s pipeline.');
 
     if (stage.kind === 'lost' && pipeline.settings.requireLostReason && !options_?.lostReasonId) {
       return err('validation_failed', 'A lost reason is required to close a deal as lost.', {
@@ -429,7 +428,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     findDuplicates: async (candidate) => {
       await delay('lead-duplicates');
       const name = String((candidate as { companyName?: string }).companyName ?? '').toLowerCase();
-      const matches = (db.all('leads') as unknown as Lead[]).filter(
+      const matches = (leads.raw()).filter(
         (lead) => lead.companyName && name && lead.companyName.toLowerCase().includes(name.slice(0, 6)),
       );
       return {
@@ -449,19 +448,20 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     merge: async (primaryId, mergeIds) => {
       await delay('lead-merge');
       const primary = db.state.leads[primaryId];
-      if (!primary) return err<Lead>('not_found', 'The record to keep could not be found.');
+      if (!primary || primary.organizationId !== currentOrganizationId()) return err<Lead>('not_found', 'The record to keep could not be found.');
+      if (mergeIds.some((id) => db.state.leads[id]?.organizationId !== currentOrganizationId())) return err<Lead>('forbidden', 'Cannot merge records from another organization.');
       db.removeMany('leads', mergeIds);
       return ok(primary);
     },
     previewConversion: async (id, request) => {
       await delay(`lead-preview:${id}`, { latency: { min: 80, max: 220 } });
       const lead = db.state.leads[id];
-      if (!lead) return err('not_found', 'That lead no longer exists.');
+      if (!lead || lead.organizationId !== currentOrganizationId()) return err('not_found', 'That lead no longer exists.');
 
-      const existingContact = (db.all('contacts') as unknown as Contact[]).find((contact) =>
+      const existingContact = (contacts.raw()).find((contact) =>
         lead.emails.some((email) => contact.emails.some((candidate) => candidate.value === email.value)),
       );
-      const existingAccount = (db.all('accounts') as unknown as Account[]).find(
+      const existingAccount = (accounts.raw()).find(
         (account) => account.name.toLowerCase() === (lead.companyName ?? '').toLowerCase(),
       );
 
@@ -498,7 +498,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     convert: async (request) => {
       await delay(`lead-convert:${request.leadId}`, { latency: { min: 220, max: 520 } });
       const lead = db.state.leads[request.leadId];
-      if (!lead) return err('not_found', 'That lead no longer exists.');
+      if (!lead || lead.organizationId !== currentOrganizationId()) return err('not_found', 'That lead no longer exists.');
 
       const preview = await leadsService.previewConversion(request.leadId, request);
       if (!preview.ok) return preview;
@@ -642,7 +642,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     sources: async () => {
       await delay('lead-sources');
       const sources = Object.values(db.state.leadSources).map((source) => {
-        const related = (db.all('leads') as unknown as Lead[]).filter((lead) => lead.leadSourceId === source.id);
+        const related = (leads.raw()).filter((lead) => lead.leadSourceId === source.id);
         const converted = related.filter((lead) => lead.status === 'converted').length;
         return { ...source, leadCount: related.length, conversionRate: related.length > 0 ? Number(((converted / related.length) * 100).toFixed(1)) : 0 };
       });
@@ -672,7 +672,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     commitImport: async (rows, mapping, commitOptions) => {
       await delay('lead-import-commit', { latency: { min: 320, max: 760 } });
-      const organizationId = resolveOrganizationId(db);
+      const organizationId = currentOrganizationId();
       let created = 0;
       let skipped = 0;
       const leadIds: Id[] = [];
@@ -680,7 +680,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       for (const row of rows) {
         const email = mapping['email'] ? row[mapping['email']] : undefined;
         if (commitOptions.skipDuplicates && email) {
-          const duplicate = (db.all('leads') as unknown as Lead[]).some((lead) => lead.emails.some((candidate) => candidate.value === email));
+          const duplicate = (leads.raw()).some((lead) => lead.emails.some((candidate) => candidate.value === email));
           if (duplicate) {
             skipped += 1;
             continue;
@@ -761,7 +761,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     findDuplicates: async () => {
       await delay('contact-duplicates');
-      const all = db.all('contacts') as unknown as Contact[];
+      const all = contacts.raw();
       const groups = new Map<string, Contact[]>();
       for (const contact of all) {
         const key = `${contact.lastName.toLowerCase()}|${contact.accountId ?? ''}`;
@@ -788,12 +788,13 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     merge: async (primaryId, mergeIds) => {
       await delay('contact-merge');
       const primary = db.state.contacts[primaryId];
-      if (!primary) return err<Contact>('not_found', 'The record to keep could not be found.');
+      if (!primary || primary.organizationId !== currentOrganizationId()) return err<Contact>('not_found', 'The record to keep could not be found.');
+      if (mergeIds.some((id) => db.state.contacts[id]?.organizationId !== currentOrganizationId())) return err<Contact>('forbidden', 'Cannot merge records from another organization.');
       db.removeMany('contacts', mergeIds);
       return ok(primary);
     },
     timeline: async (id, query = {}) => {
-      const all = db.all('activities') as unknown as Activity[];
+      const all = activities.raw();
       const related = all.filter((activity) => activity.subjects?.some((subject) => subject.id === id));
       return runQuery(related, query, { searchFields: ['subject', 'body'], defaultSort: [{ field: 'createdAt', direction: 'desc' }] });
     },
@@ -808,7 +809,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     export: async (ids) => {
       await delay('contact-export', { latency: { min: 260, max: 620 } });
       // Generated in the browser; nothing is emailed and no server is involved.
-      return ok({ exportId: `exp-${Date.now().toString(36)}`, rowCount: ids.length || (db.all('contacts') as unknown[]).length, generatedLocally: true });
+      return ok({ exportId: `exp-${Date.now().toString(36)}`, rowCount: ids.length || (contacts.raw()).length, generatedLocally: true });
     },
   };
 
@@ -823,13 +824,16 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     bulkRemove: (ids, writeOptions) => accounts.bulkRemove(ids, writeOptions),
     archive: (id) => accounts.archive(id),
     restore: (id) => accounts.restore(id),
-    hierarchy: async () => ok((db.all('accounts') as unknown as Account[]).map((account) => ({ id: account.id, name: account.name, parentId: account.parentAccountId, depth: account.hierarchyDepth, health: account.health }))),
+    hierarchy: async () => ok((accounts.raw()).map((account) => ({ id: account.id, name: account.name, parentId: account.parentAccountId, depth: account.hierarchyDepth, health: account.health }))),
     moveAccount: async (id, newParentId) => {
       await delay('account-move');
       const account = db.state.accounts[id];
-      if (!account) return err<Account>('not_found', 'Account not found.');
+      if (!account || account.organizationId !== currentOrganizationId()) return err<Account>('not_found', 'Account not found.');
       // Guard against a cycle: an account cannot become its own ancestor.
       let cursor = newParentId ? db.state.accounts[newParentId] : undefined;
+      if (newParentId && (!cursor || cursor.organizationId !== currentOrganizationId())) {
+        return err<Account>('not_found', 'Parent account not found.');
+      }
       while (cursor) {
         if (cursor.id === id) return err<Account>('validation_failed', 'An account cannot be moved beneath itself.');
         cursor = cursor.parentAccountId ? db.state.accounts[cursor.parentAccountId] : undefined;
@@ -866,7 +870,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       });
     },
     contacts: async (id, query = {}) => {
-      const all = (db.all('contacts') as unknown as Contact[]).filter((contact) => contact.accountId === id);
+      const all = (contacts.raw()).filter((contact) => contact.accountId === id);
       return runQuery(all, query, { searchFields: ['displayName', 'jobTitle'], defaultSort: [{ field: 'displayName', direction: 'asc' }] });
     },
     deals: async (id, query = {}) => {
@@ -1140,7 +1144,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     remove: (id, writeOptions) => activities.remove(id, writeOptions),
     bulkRemove: (ids, writeOptions) => activities.bulkRemove(ids, writeOptions),
     forRecord: async (type, id, query = {}) => {
-      const all = db.all('activities') as unknown as Activity[];
+      const all = activities.raw();
       const related = all.filter((activity) => activity.subjects?.some((subject) => subject.type === type && subject.id === id));
       return runQuery(related, query, { searchFields: ['subject', 'body'], facetField: 'kind', defaultSort: [{ field: 'createdAt', direction: 'desc' }] });
     },
@@ -1178,7 +1182,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     dailyPlan: async (userId, date) => {
       await delay('daily-plan');
-      const all = db.all('activities') as unknown as Activity[];
+      const all = activities.raw();
       const mine = all.filter((activity) => activity.ownerId === userId && activity.status !== 'completed' && activity.status !== 'cancelled');
       const dueToday = mine.filter((activity) => (activity.dueAt ?? '').slice(0, 10) === date);
       const overdue = mine.filter((activity) => (activity.dueAt ?? '') < date);
@@ -1222,7 +1226,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     overdueForUser: async (userId, query = {}) => {
       const today = toDateString(DATASET_EPOCH);
-      const all = (db.all('activities') as unknown as Activity[]).filter(
+      const all = (activities.raw()).filter(
         (activity) => activity.ownerId === userId && activity.status !== 'completed' && (activity.dueAt ?? '') < today,
       );
       return runQuery(all, query, { searchFields: ['subject'], defaultSort: [{ field: 'dueAt', direction: 'asc' }] });
@@ -1233,7 +1237,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
   const tasksService: ServiceContainer['tasks'] = {
     list: async (query = {}) => {
-      const all = (db.all('activities') as unknown as Activity[]).filter((activity) => activity.kind === 'task');
+      const all = (activities.raw()).filter((activity) => activity.kind === 'task');
       return runQuery(all as never[], query, { searchFields: ['subject'], defaultSort: [{ field: 'dueAt', direction: 'asc' }] });
     },
     get: async (id) => {
@@ -1267,7 +1271,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       await delay('task-template');
       const now = new Date().toISOString();
       const id = `act-tpl-${Date.now().toString(36)}`;
-      const organizationId = resolveOrganizationId(db);
+      const organizationId = currentOrganizationId();
       const record = {
         id,
         organizationId,
@@ -1301,7 +1305,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     },
     calendars: async () => {
       await delay('calendars');
-      const organizationId = resolveOrganizationId(db);
+      const organizationId = currentOrganizationId();
       const items: import('@crm/shared-types').Calendar[] = [
         { id: `cal-${organizationId}-personal`, organizationId, name: 'My calendar', kind: 'personal', color: 'violet', visible: true, isDefault: true, permission: 'manage' },
         { id: `cal-${organizationId}-team`, organizationId, name: 'Team calendar', kind: 'team', color: 'teal', visible: true, isDefault: false, permission: 'write' },
@@ -1418,18 +1422,19 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     merge: async (primaryId, mergeIds) => {
       await delay('ticket-merge');
       const primary = db.state.tickets[primaryId];
-      if (!primary) return err<Ticket>('not_found', 'Primary ticket not found.');
+      if (!primary || primary.organizationId !== currentOrganizationId()) return err<Ticket>('not_found', 'Primary ticket not found.');
+      if (mergeIds.some((id) => db.state.tickets[id]?.organizationId !== currentOrganizationId())) return err<Ticket>('forbidden', 'Cannot merge tickets from another organization.');
       db.removeMany('tickets', mergeIds);
       return ok({ ...primary, relatedTicketIds: [...primary.relatedTicketIds, ...mergeIds] });
     },
     messages: async (ticketId, query = {}) => {
-      const all = (db.all('ticketMessages') as unknown as import('@crm/shared-types').TicketMessage[]).filter((message) => message.ticketId === ticketId);
+      const all = (db.all('ticketMessages') as unknown as import('@crm/shared-types').TicketMessage[]).filter((message) => message.ticketId === ticketId && db.state.tickets[ticketId]?.organizationId === currentOrganizationId());
       return runQuery(all, query, { searchFields: ['body'], defaultSort: [{ field: 'createdAt', direction: 'asc' }] });
     },
     reply: async (ticketId, body, replyOptions) => {
       await delay(`ticket-reply:${ticketId}`);
       const ticket = db.state.tickets[ticketId];
-      if (!ticket) return err('not_found', 'Ticket not found.');
+      if (!ticket || ticket.organizationId !== currentOrganizationId()) return err('not_found', 'Ticket not found.');
       const id = `tmsg-${Date.now().toString(36)}`;
       const author = db.state.users[ticket.assigneeId ?? Object.keys(db.state.users)[0]!]!;
       const message: import('@crm/shared-types').TicketMessage = {
@@ -1461,7 +1466,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     resolve: async (id, summary, rootCause) => {
       await delay(`ticket-resolve:${id}`);
       const ticket = db.state.tickets[id];
-      if (!ticket) return err<Ticket>('not_found', 'Ticket not found.');
+      if (!ticket || ticket.organizationId !== currentOrganizationId()) return err<Ticket>('not_found', 'Ticket not found.');
       const updated: Ticket = {
         ...ticket,
         status: 'resolved',
@@ -1477,7 +1482,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
     reopen: async (id, reason) => {
       await delay(`ticket-reopen:${id}`);
       const ticket = db.state.tickets[id];
-      if (!ticket) return err<Ticket>('not_found', 'Ticket not found.');
+      if (!ticket || ticket.organizationId !== currentOrganizationId()) return err<Ticket>('not_found', 'Ticket not found.');
       const updated: Ticket = { ...ticket, status: 'reopened', reopenCount: ticket.reopenCount + 1, resolvedAt: undefined, slaState: 'on_track', updatedAt: new Date().toISOString() };
       db.put('tickets', updated);
       db.put('ticketMessages', {
@@ -1494,11 +1499,11 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       return ok(updated);
     },
     categories: async (query = {}) => {
-      const records = Object.values(db.state.ticketCategories);
+      const records = Object.values(db.state.ticketCategories).filter((category) => category.organizationId === currentOrganizationId());
       return runQuery(records, query, { searchFields: ['name'], defaultSort: [{ field: 'name', direction: 'asc' }] });
     },
     slaPolicies: async (query = {}) => {
-      const policies = Object.values(db.state.slaPolicies).map((policy) => {
+      const policies = Object.values(db.state.slaPolicies).filter((policy) => policy.organizationId === currentOrganizationId()).map((policy) => {
         const scoped = ticketsInScope().filter((ticket) => ticket.slaPolicyId === policy.id);
         const breached = scoped.filter((ticket) => ticket.slaState === 'breached').length;
         return { ...policy, ticketsTotal: scoped.length, ticketsBreached: breached, compliancePercent: scoped.length > 0 ? Number((((scoped.length - breached) / scoped.length) * 100).toFixed(1)) : 100 };
@@ -2467,7 +2472,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
       const lost = allDeals.filter((deal) => deal.status === 'lost');
       const open = allDeals.filter((deal) => deal.status === 'open');
       const totals = computePipelineTotals(allDeals);
-      const currency = Object.values(db.state.organizations)[0]!.defaultCurrency;
+      const currency = db.state.organizations[currentOrganizationId()]?.defaultCurrency ?? 'USD';
 
       return ok({
         currency,
@@ -2826,6 +2831,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
   const productsCrud = createCrud<Product>(db, 'products', {
     label: 'Product',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['name', 'sku', 'categoryLabel', 'family'],
     facetField: 'status',
     defaultSort: [{ field: 'name', direction: 'asc' }],
@@ -3048,6 +3054,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
   const quotesCrud = createCrud<Quote>(db, 'quotes', {
     label: 'Quote',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['reference', 'name', 'accountName', 'dealName'],
     facetField: 'status',
     defaultSort: [{ field: 'updatedAt', direction: 'desc' }],
@@ -3403,6 +3410,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
   const ordersCrud = createCrud<Order>(db, 'orders', {
     label: 'Order',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['reference', 'accountName'],
     facetField: 'status',
     defaultSort: [{ field: 'orderDate', direction: 'desc' }],
@@ -3471,6 +3479,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
   const contractsCrud = createCrud<Contract>(db, 'contracts', {
     label: 'Contract',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['reference', 'title', 'accountName', 'ownerName'],
     facetField: 'status',
     defaultSort: [{ field: 'endDate', direction: 'asc' }],
@@ -3641,6 +3650,7 @@ export function createMockServices(options: { db?: MockDb; persist?: boolean } =
 
   const invoicesCrud = createCrud<InvoiceRecord>(db, 'invoices', {
     label: 'Invoice',
+    activeOrganizationId: currentOrganizationId,
     searchFields: ['reference', 'accountName'],
     facetField: 'status',
     defaultSort: [{ field: 'issueDate', direction: 'desc' }],

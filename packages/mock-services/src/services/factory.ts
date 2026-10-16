@@ -101,6 +101,8 @@ export function simulatedFailure<T>(options: WriteOptions | undefined, fieldPath
 export interface CrudOptions<T> {
   /** Human label used in error messages. */
   label: string;
+  /** Resolve the current organization for tenant-scoped collections. */
+  activeOrganizationId?: () => Id;
   /** Fields included in free-text search. */
   searchFields: Array<keyof T | string>;
   facetField?: string;
@@ -143,7 +145,14 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
     defaultSort: options.defaultSort ?? [{ field: 'updatedAt', direction: 'desc' }],
   };
 
-  const all = () => db.all(collection) as unknown as T[];
+  const belongsToActiveOrganization = (record: T | undefined): record is T =>
+    Boolean(record && (!options.activeOrganizationId ||
+      (record as T & { organizationId: Id }).organizationId === options.activeOrganizationId()));
+  const all = () => (db.all(collection) as unknown as T[]).filter(belongsToActiveOrganization);
+  const ownedRecord = (id: Id): T | undefined => {
+    const record = db.get(collection, id) as unknown as T | undefined;
+    return belongsToActiveOrganization(record) ? record : undefined;
+  };
 
   return {
     async list(query: ListQuery = {}): Promise<Paginated<T>> {
@@ -161,7 +170,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
 
     async get(id: Id): Promise<Result<T>> {
       await delay(`get:${String(collection)}:${id}`, { latency: { min: 40, max: 140 } });
-      const record = (db.get(collection, id) as unknown as T | undefined) ?? undefined;
+      const record = ownedRecord(id);
       if (!record) {
         return err<T>('not_found', `${options.label} not found. The record may have been deleted.`, { traceId: `nf-${id}` });
       }
@@ -181,9 +190,14 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
         return err<T>('validation_failed', validationMessage, { fieldErrors: [{ path: 'name', message: validationMessage }] });
       }
 
+      const requestedOrganizationId = (input as { organizationId?: Id }).organizationId;
+      if (options.activeOrganizationId && requestedOrganizationId && requestedOrganizationId !== options.activeOrganizationId()) {
+        return err<T>('forbidden', 'A record cannot be created for another organization.');
+      }
       const stamped = {
         ...(options.defaultsFor?.(input, db) ?? {}),
         ...(input as Record<string, unknown>),
+        ...(options.activeOrganizationId ? { organizationId: options.activeOrganizationId() } : {}),
       } as T;
 
       const record = {
@@ -205,7 +219,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
       }
       await delay(`update:${String(collection)}`, writeOptions);
 
-      const existing = db.get(collection, id) as unknown as T | undefined;
+      const existing = ownedRecord(id);
       if (!existing) {
         return err<T>('not_found', `${options.label} not found.`);
       }
@@ -220,6 +234,9 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
 
       const patch = { ...(input as Record<string, unknown>) };
       delete patch.expectedUpdatedAt;
+      delete patch.organizationId;
+      delete patch.id;
+      delete patch.createdAt;
 
       const updated = { ...existing, ...patch, id, updatedAt: nowIso() } as T;
       db.put(collection, updated as never);
@@ -230,7 +247,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
       const failure = simulatedFailure<{ id: Id }>(writeOptions);
       if (failure) return failure;
       await delay(`remove:${String(collection)}`, writeOptions);
-      if (!db.get(collection, id)) {
+      if (!ownedRecord(id)) {
         return err<{ id: Id }>('not_found', `${options.label} not found.`);
       }
       db.remove(collection, id);
@@ -242,7 +259,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
       const failures: Array<{ id: Id; reason: string }> = [];
       const removable: Id[] = [];
       for (const id of ids) {
-        if (db.get(collection, id)) removable.push(id);
+        if (ownedRecord(id)) removable.push(id);
         else failures.push({ id, reason: 'Record not found' });
       }
       const removed = db.removeMany(collection, removable);
@@ -251,7 +268,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
 
     async archive(id: Id): Promise<Result<T>> {
       await delay(`archive:${String(collection)}`);
-      const existing = db.get(collection, id) as unknown as T | undefined;
+      const existing = ownedRecord(id);
       if (!existing) return err<T>('not_found', `${options.label} not found.`);
       const archived = { ...existing, archivedAt: nowIso(), updatedAt: nowIso() } as T;
       db.put(collection, archived as never);
@@ -260,7 +277,7 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
 
     async restore(id: Id): Promise<Result<T>> {
       await delay(`restore:${String(collection)}`);
-      const existing = db.get(collection, id) as unknown as T | undefined;
+      const existing = ownedRecord(id);
       if (!existing) return err<T>('not_found', `${options.label} not found.`);
       const restored = { ...existing, archivedAt: undefined, updatedAt: nowIso() } as T;
       db.put(collection, restored as never);
@@ -272,19 +289,23 @@ export function createCrud<T extends { id: Id; createdAt?: string; updatedAt?: s
       await delay(`bulk-patch:${String(collection)}:${label}`);
       const failures: Array<{ id: Id; reason: string }> = [];
       let succeeded = 0;
+      const safePatch = { ...patch };
+      delete safePatch.organizationId;
+      delete safePatch.id;
+      delete safePatch.createdAt;
       for (const id of ids) {
-        const existing = db.get(collection, id) as unknown as T | undefined;
+        const existing = ownedRecord(id);
         if (!existing) {
           failures.push({ id, reason: 'Record not found' });
           continue;
         }
-        db.put(collection, { ...existing, ...patch, id, updatedAt: nowIso() } as never);
+        db.put(collection, { ...existing, ...safePatch, id, updatedAt: nowIso() } as never);
         succeeded += 1;
       }
       return ok({ requested: ids.length, succeeded, failed: failures.length, failures });
     },
 
-    /** Read the raw collection, bypassing query options. Used by rollup computations. */
+    /** Read tenant-scoped records without pagination or sorting. */
     raw(): T[] {
       return all();
     },
