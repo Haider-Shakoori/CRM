@@ -572,7 +572,8 @@ describe('read services', () => {
     expect(overview.ok).toBe(true);
     if (!overview.ok) return;
 
-    const tickets = Object.values(db.state.tickets);
+    const activeOrganizationId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const tickets = Object.values(db.state.tickets).filter((ticket) => ticket.organizationId === activeOrganizationId);
     const open = tickets.filter((ticket) => !['resolved', 'closed'].includes(ticket.status));
     expect(overview.data.metrics.openTickets).toBe(open.length);
     // Status buckets must account for every ticket exactly once.
@@ -757,10 +758,10 @@ describe('role and permission presentation', () => {
 });
 
 describe('account hierarchy walk', () => {
-  it('reports the hierarchy for every account without looping or losing a record', async () => {
+  it('reports every active-organization account without looping or losing a record', async () => {
     // The walker in the account screen is only as safe as the data it reads. This guards the
-    // read path: hierarchy() must describe every account exactly once, and no node may be its
-    // own ancestor even after a move.
+    // read path: hierarchy() must describe each account within the current tenant exactly
+    // once, without exposing other organizations or allowing parent cycles.
     const db = freshDb();
     const services = createMockServices({ db, persist: false });
 
@@ -768,7 +769,8 @@ describe('account hierarchy walk', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const accounts = Object.values(db.state.accounts);
+    const activeOrganizationId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const accounts = Object.values(db.state.accounts).filter((account) => account.organizationId === activeOrganizationId);
     expect(result.data).toHaveLength(accounts.length);
     for (const node of result.data) {
       expect(node.id).not.toBe(node.parentId);
@@ -1105,10 +1107,9 @@ describe('support, knowledge base and conversations', () => {
     expect(overview.ok).toBe(true);
     if (!overview.ok) return;
 
-    // Note: the support overview aggregates every seeded ticket, across tenants, because the
-    // mock service reads the ticket collection directly. The assertion records that behaviour
-    // rather than pretending the overview is tenant-scoped.
-    const open = Object.values(db.state.tickets).filter((ticket) => !['resolved', 'closed'].includes(ticket.status)).length;
+    // The support overview must never count another organization's tickets.
+    const activeOrganizationId = Object.values(db.state.users)[0]!.activeOrganizationId;
+    const open = Object.values(db.state.tickets).filter((ticket) => ticket.organizationId === activeOrganizationId && !['resolved', 'closed'].includes(ticket.status)).length;
     expect(overview.data.metrics.openTickets).toBe(open);
     expect(overview.data.byStatus.length).toBeGreaterThan(0);
   });
