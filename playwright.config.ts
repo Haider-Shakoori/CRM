@@ -15,19 +15,19 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'npm run preview:crm -- --host 127.0.0.1',
+      command: 'npm run preview --workspace @crm/app -- --host 127.0.0.1',
       url: 'http://127.0.0.1:5173/app/home',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
     {
-      command: 'npm run preview:website -- --host 127.0.0.1',
+      command: 'npm run preview --workspace @crm/website -- --host 127.0.0.1',
       url: 'http://127.0.0.1:4321/',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
     {
-      command: 'npm run preview:admin -- --host 127.0.0.1',
+      command: 'npm run preview --workspace @crm/platform-admin -- --host 127.0.0.1',
       url: 'http://127.0.0.1:5174/',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
