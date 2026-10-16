@@ -5,7 +5,7 @@
   "description": "Multi-tenant SaaS CRM platform - frontend monorepo (public website, CRM application, platform administration).",
   "type": "module",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.22.2"
   },
   "workspaces": [
     "apps/*",
@@ -51,7 +51,7 @@
     "eslint": "^10.12.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
-    "jsdom": "^27.4.0",
+    "jsdom": "^30.1.2",
     "prettier": "^3.9.10",
     "prettier-plugin-astro": "^1.1.1",
     "typescript": "^5.9.3",
