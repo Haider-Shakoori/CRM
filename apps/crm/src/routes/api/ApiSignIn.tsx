@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, createLaravelClient } from '../../app/laravelClient';
 
 /**
@@ -8,6 +8,7 @@ import { ApiError, createLaravelClient } from '../../app/laravelClient';
  */
 export default function ApiSignIn() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
@@ -35,6 +36,7 @@ export default function ApiSignIn() {
           <h1 className="text-2xl font-semibold">CRM API sign in</h1>
           <p className="text-sm text-muted">Sign in securely using your organization account. This is the new Laravel-backed workspace preview.</p>
         </header>
+        {location.state?.passwordReset && <p role="status" className="rounded border p-3 text-sm">Password changed. Please sign in.</p>}
         {!apiBase ? (
           <p role="alert" className="rounded border p-3 text-sm">API access is not configured. Set VITE_CRM_API_URL to the Laravel server origin to enable sign-in.</p>
         ) : (
@@ -49,7 +51,7 @@ export default function ApiSignIn() {
             <button className="w-full rounded bg-blue-700 p-3 font-medium text-white disabled:opacity-50" type="submit" disabled={pending}>{pending ? 'Signing in…' : 'Sign in'}</button>
           </form>
         )}
-        <Link className="text-sm underline" to="/app/home">Return to the demo CRM</Link>
+        <div className="flex flex-wrap justify-between gap-3 text-sm"><Link className="underline" to="/forgot-password">Forgot password?</Link><Link className="underline" to="/app/home">Demo CRM</Link></div>
       </div>
     </main>
   );
