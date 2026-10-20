@@ -177,7 +177,7 @@ final class StripeBilling
             return 'stale_event';
         }
         $previous = DB::table('crm_stripe_subscription_links')->where('tenant_id', $tenant)->first();
-        if ($previous && $previous->stripe_subscription_id !== $subId) return 'different_subscription';
+        $replacement = $previous && $previous->stripe_subscription_id !== $subId;
         $ends = $object['items']['data'][0]['current_period_end'] ?? $object['current_period_end'] ?? null;
         $endDate = is_int($ends) && $ends > time() ? \Illuminate\Support\Carbon::createFromTimestampUTC($ends) : null;
         $state = (string) ($object['status'] ?? '');
@@ -191,6 +191,17 @@ final class StripeBilling
         };
         $sub = DB::table('crm_tenant_subscriptions')->where('tenant_id', $tenant)->lockForUpdate()->first();
         if (!$sub) return 'missing_local_subscription';
+        if ($replacement) {
+            // Only a new, locally initiated checkout after cancellation may
+            // replace the old subscription, and it MUST use the same customer.
+            if (!$intent || $previous->stripe_customer_id !== $customer ||
+                !in_array($sub->status, ['canceled', 'expired'], true)) {
+                return 'different_subscription';
+            }
+            if (!in_array($status, ['active', 'trialing'], true)) {
+                return 'replacement_pending_no_entitlements';
+            }
+        }
         if (!$previous) {
             DB::table('crm_stripe_subscription_links')->insert([
                 'tenant_id' => $tenant, 'stripe_customer_id' => $customer,
@@ -200,6 +211,7 @@ final class StripeBilling
             ]);
         } else {
             DB::table('crm_stripe_subscription_links')->where('tenant_id', $tenant)->update([
+                'stripe_subscription_id' => $subId, 'plan_id' => $planId,
                 'last_event_created' => $created, 'last_event_id' => $event['id'],
                 'updated_at' => now(),
             ]);
