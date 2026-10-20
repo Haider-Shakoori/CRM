@@ -293,4 +293,44 @@ final class StripeBillingTest extends TestCase
         ]);
     }
 
+    public function test_paid_plan_publication_requires_explicit_test_configuration_and_operator_cli(): void
+    {
+        $this->assertSame(1, \Illuminate\Support\Facades\Artisan::call('crm:stripe:publish-plan', [
+            'code' => 'team',
+        ]));
+        $this->assertDatabaseHas('crm_subscription_plans', ['code' => 'team', 'public' => false]);
+        $this->configured();
+        DB::table('crm_subscription_plans')->where('code', 'team')->update(['public' => false]);
+        $this->assertSame(0, \Illuminate\Support\Facades\Artisan::call('crm:stripe:publish-plan', [
+            'code' => 'team',
+        ]));
+        $this->assertDatabaseHas('crm_subscription_plans', ['code' => 'team', 'public' => true]);
+        $this->assertSame(0, \Illuminate\Support\Facades\Artisan::call('crm:stripe:publish-plan', [
+            'code' => 'team', '--revoke' => true,
+        ]));
+        $this->assertDatabaseHas('crm_subscription_plans', ['code' => 'team', 'public' => false]);
+    }
+
+    public function test_deletion_event_for_known_subscription_can_revoke_without_expanded_price(): void
+    {
+        [$tenant] = $this->owner();
+        $this->configured();
+        $planId = DB::table('crm_subscription_plans')->where('code', 'team')->value('id');
+        DB::table('crm_tenant_subscriptions')->where('tenant_id', $tenant->id)
+            ->update(['plan_id' => $planId, 'status' => 'active']);
+        DB::table('crm_stripe_subscription_links')->insert([
+            'tenant_id' => $tenant->id, 'stripe_customer_id' => 'cus_test_x',
+            'stripe_subscription_id' => 'sub_test_x', 'plan_id' => $planId,
+            'last_event_created' => time() - 120, 'last_event_id' => 'evt_old',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $event = $this->subscriptionEvent('evt_deletion_no_price', 'customer.subscription.deleted',
+            (string) Str::uuid(), $tenant->id, time(), 'canceled');
+        unset($event['data']['object']['items']);
+        $this->postEvent($event)->assertOk()->assertJsonPath('data.handled', 'subscription_synced');
+        $this->assertDatabaseHas('crm_tenant_subscriptions', [
+            'tenant_id' => $tenant->id, 'status' => 'canceled',
+        ]);
+    }
+
 }
