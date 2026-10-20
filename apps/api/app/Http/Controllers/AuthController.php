@@ -46,6 +46,15 @@ final class AuthController
             $tenant = Tenant::create([
                 'name' => $data['organization_name'], 'slug' => $slug, 'status' => 'active',
             ]);
+            // New tenants begin with the free Starter entitlement; no paid status is inferred.
+            $starter = DB::table('crm_subscription_plans')->where('code', 'starter')->value('id');
+            if (!$starter) throw new \RuntimeException('Starter plan is unavailable. Run migrations.');
+            DB::table('crm_tenant_subscriptions')->insert([
+                'id' => (string) Str::uuid(), 'tenant_id' => $tenant->id,
+                'plan_id' => $starter, 'status' => 'active', 'version' => 1,
+                'cancel_at_period_end' => false, 'period_ends_at' => null,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
             $organization = Organization::create([
                 'tenant_id' => $tenant->id,
                 'name' => $data['organization_name'], 'slug' => $slug, 'status' => 'active',
