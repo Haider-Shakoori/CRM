@@ -40,7 +40,7 @@ export default defineConfig({
         test: {
           name: 'dom',
           environment: 'jsdom',
-          include: ['packages/ui/src/**/*.test.tsx', 'apps/crm/src/**/*.test.tsx'],
+          include: ['packages/ui/src/**/*.test.tsx', 'apps/crm/src/**/*.test.tsx', 'apps/platform-admin/src/**/*.test.tsx'],
           globals: true,
           setupFiles: ['./vitest.setup.ts'],
           // The workspace packages export TypeScript source, so they must be transformed by
