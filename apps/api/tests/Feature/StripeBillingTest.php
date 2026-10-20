@@ -333,4 +333,37 @@ final class StripeBillingTest extends TestCase
         ]);
     }
 
+    public function test_pending_checkout_cannot_duplicate_charges_until_signed_expiration(): void
+    {
+        [$tenant, $org, $owner] = $this->owner();
+        $this->configured();
+        $intent = (string) Str::uuid();
+        DB::table('crm_stripe_checkout_intents')->insert([
+            'id' => $intent, 'tenant_id' => $tenant->id,
+            'plan_id' => DB::table('crm_subscription_plans')->where('code', 'team')->value('id'),
+            'price_id' => 'price_team_test', 'stripe_checkout_session_id' => 'cs_test_old',
+            'status' => 'pending', 'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2),
+        ]);
+        Http::fake(['api.stripe.com/v1/checkout/sessions' => Http::response([
+            'id' => 'cs_test_new', 'url' => 'https://checkout.stripe.com/c/pay/cs_test_new',
+        ])]);
+        $this->actingAs($owner)->withHeader('X-Organization-ID', $org->id);
+        $this->postJson('/api/v1/organizations/billing/checkout', ['plan_code' => 'team'])
+            ->assertStatus(409)->assertJsonPath('error.code', 'checkout_pending');
+        Http::assertNothingSent();
+        $expired = [
+            'id' => 'evt_checkout_expired_123',
+            'type' => 'checkout.session.expired', 'created' => time(), 'livemode' => false,
+            'data' => ['object' => [
+                'id' => 'cs_test_old', 'client_reference_id' => $intent, 'mode' => 'subscription',
+            ]],
+        ];
+        $this->postEvent($expired, true)->assertStatus(400);
+        $this->postEvent($expired)->assertOk()->assertJsonPath('data.handled', 'checkout_expired');
+        $this->assertDatabaseHas('crm_stripe_checkout_intents', ['id' => $intent, 'status' => 'expired']);
+        $this->postJson('/api/v1/organizations/billing/checkout', ['plan_code' => 'team'])
+            ->assertOk()->assertJsonPath('data.checkout_pending', true);
+        $this->assertDatabaseCount('crm_stripe_checkout_intents', 2);
+    }
+
 }
