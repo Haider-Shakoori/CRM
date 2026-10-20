@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CrmAccount;
 use App\Models\CrmContact;
+use App\Models\CrmDeal;
 use App\Support\AuditTrail;
 use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
@@ -78,9 +79,10 @@ final class CrmAccountController
     {
         return DB::transaction(function () use ($request, $id): JsonResponse {
             $account = CrmAccount::query()->lockForUpdate()->findOrFail($id);
-            if (CrmContact::query()->where('account_id', $id)->exists()) {
+            if (CrmContact::query()->where('account_id', $id)->exists() ||
+                CrmDeal::withTrashed()->where('account_id', $id)->exists()) {
                 return response()->json(['ok' => false, 'error' => [
-                    'code' => 'conflict', 'message' => 'Move or unlink contacts before deleting this account.',
+                    'code' => 'conflict', 'message' => 'Move or unlink contacts and deals before deleting this account.',
                     'retryable' => false,
                 ]], 409);
             }

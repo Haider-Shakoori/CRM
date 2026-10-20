@@ -163,6 +163,7 @@ export default function ApiWorkspace() {
         <nav className="flex gap-4">
           <Link className="underline" to="/crm/accounts">Live Accounts</Link>
           <Link className="underline" to="/crm/contacts">Live Contacts</Link>
+      <Link className="underline" to="/crm/deals">Live Deals</Link>
           <Link className="underline" to="/app/leads">Demo Leads</Link>
           <button type="button" className="underline disabled:opacity-50" disabled={busy} onClick={() => { void logout(); }}>Sign out</button>
         </nav>

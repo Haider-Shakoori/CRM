@@ -223,6 +223,7 @@ export default function DealsBoard() {
         breadcrumbs={[{ label: 'Home', to: '/app/home' }, { label: 'Deals' }]}
         actions={
           <>
+            <Button variant="secondary" size="sm" asChild><Link to="/crm/deals">Live Deals (Laravel)</Link></Button>
             <Button variant="primary" size="sm" leadingIcon={<Plus className="size-3.5" />} asChild>
               <Link to="/app/deals/new">New deal</Link>
             </Button>
@@ -566,6 +567,7 @@ export function DealsList() {
         breadcrumbs={[{ label: 'Home', to: '/app/home' }, { label: 'Deals' }, { label: 'List' }]}
         actions={
           <>
+            <Button variant="secondary" size="sm" asChild><Link to="/crm/deals">Live Deals (Laravel)</Link></Button>
             <Button variant="primary" size="sm" leadingIcon={<Plus className="size-3.5" />} asChild>
               <Link to="/app/deals/new">New deal</Link>
             </Button>

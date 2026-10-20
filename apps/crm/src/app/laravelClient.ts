@@ -70,6 +70,58 @@ export interface ApiContact {
 export type AccountInput = { name: string; website?: string | null; phone?: string | null; industry?: string | null; notes?: string | null };
 export type ContactInput = { first_name: string; last_name: string; account_id?: string | null; email?: string | null; phone?: string | null; job_title?: string | null; notes?: string | null };
 
+
+export type ApiStageKind = 'open' | 'won' | 'lost';
+export interface ApiPipelineStage {
+  id: string;
+  organization_id: string;
+  pipeline_id: string;
+  name: string;
+  kind: ApiStageKind;
+  position: number;
+}
+export interface ApiPipeline {
+  id: string;
+  organization_id: string;
+  name: string;
+  version: number;
+  stages: ApiPipelineStage[];
+}
+export interface ApiDeal {
+  id: string;
+  organization_id: string;
+  pipeline_id: string;
+  stage_id: string;
+  account_id: string | null;
+  name: string;
+  amount: string;
+  currency: string;
+  expected_close_date: string | null;
+  notes: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+export interface ApiDealEvent {
+  id: string;
+  deal_id: string;
+  action: 'created' | 'updated' | 'moved' | 'archived';
+  from_stage_id: string | null;
+  to_stage_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+export type DealInput = {
+  name: string;
+  pipeline_id: string;
+  stage_id: string;
+  amount?: number;
+  currency?: string;
+  account_id?: string | null;
+  expected_close_date?: string | null;
+  notes?: string | null;
+};
+
 export interface ApiPage<T> {
   items: T[];
   meta: { page: number; pageSize: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
@@ -169,6 +221,31 @@ export function createLaravelClient(options: ApiOptions) {
       request<ApiContact>('/api/v1/contacts/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(patch) }, true),
     deleteContact: (id: string) =>
       request<{ id: string }>('/api/v1/contacts/' + encodeURIComponent(id), { method: 'DELETE' }, true),
+    listPipelines: () => request<ApiPipeline[]>('/api/v1/pipelines', {}, true),
+    getPipeline: (id: string) => request<ApiPipeline>('/api/v1/pipelines/' + encodeURIComponent(id), {}, true),
+    createPipeline: (name: string) => request<ApiPipeline>('/api/v1/pipelines',
+      { method: 'POST', body: JSON.stringify({ name }) }, true),
+    addPipelineStage: (pipelineId: string, name: string, kind: ApiStageKind) =>
+      request<ApiPipelineStage>('/api/v1/pipelines/' + encodeURIComponent(pipelineId) + '/stages',
+        { method: 'POST', body: JSON.stringify({ name, kind }) }, true),
+    listDeals: (params: { pipeline_id?: string; page?: number; pageSize?: number; q?: string } = {}) => {
+      const search = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value));
+      return request<ApiPage<ApiDeal>>('/api/v1/deals' + (search.size ? '?' + search.toString() : ''), {}, true);
+    },
+    getDeal: (id: string) => request<ApiDeal>('/api/v1/deals/' + encodeURIComponent(id), {}, true),
+    getDealEvents: (id: string) => request<ApiDealEvent[]>('/api/v1/deals/' + encodeURIComponent(id) + '/events', {}, true),
+    createDeal: (input: DealInput) => request<ApiDeal>('/api/v1/deals',
+      { method: 'POST', body: JSON.stringify(input) }, true),
+    updateDeal: (id: string, patch: Partial<Omit<DealInput, 'pipeline_id' | 'stage_id'>> & { expected_version: number }) =>
+      request<ApiDeal>('/api/v1/deals/' + encodeURIComponent(id),
+        { method: 'PATCH', body: JSON.stringify(patch) }, true),
+    moveDeal: (id: string, stageId: string, expectedVersion: number) =>
+      request<ApiDeal>('/api/v1/deals/' + encodeURIComponent(id) + '/move',
+        { method: 'POST', body: JSON.stringify({ stage_id: stageId, expected_version: expectedVersion }) }, true),
+    archiveDeal: (id: string) => request<{ id: string }>('/api/v1/deals/' + encodeURIComponent(id),
+      { method: 'DELETE' }, true),
+
 
   };
 }

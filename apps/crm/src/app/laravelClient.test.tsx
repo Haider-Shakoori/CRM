@@ -120,4 +120,43 @@ describe('Laravel browser client', () => {
     expect(JSON.parse(String(init?.body))).toEqual({ name: 'Renamed', expected_version: 2 });
   });
 
+  it('scopes pipeline reads and deal movements with optimistic concurrency', async () => {
+    const mock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(success([{ id: 'pipe-1', name: 'Pipeline', stages: [] }]))
+      .mockResolvedValueOnce(success({ id: 'deal-1', version: 3, stage_id: 'stage-2' }));
+    const client = createLaravelClient({
+      baseUrl: 'https://api.example.test', organizationId: 'org-3',
+      fetchImpl: mock, getXsrfToken: () => 'csrf-token',
+    });
+    await client.listPipelines();
+    await client.moveDeal('deal-1', 'stage-2', 2);
+    expect(mock.mock.calls[0]![0]).toBe('https://api.example.test/api/v1/pipelines');
+    const [path, init] = mock.mock.calls[1]!;
+    expect(path).toBe('https://api.example.test/api/v1/deals/deal-1/move');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({ stage_id: 'stage-2', expected_version: 2 });
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-3');
+    expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('csrf-token');
+    expect(init?.credentials).toBe('include');
+  });
+  it('fails closed without membership context on pipeline, deal, and timeline methods', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(client.listPipelines()).rejects.toBeInstanceOf(ApiError);
+    await expect(client.listDeals()).rejects.toBeInstanceOf(ApiError);
+    await expect(client.getDealEvents('deal-1')).rejects.toBeInstanceOf(ApiError);
+    await expect(client.archiveDeal('deal-1')).rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('preserves server-driven pipeline paging and search', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({
+      items: [], meta: { page: 2, pageSize: 100, total: 102, totalPages: 2, hasNext: false, hasPrev: true },
+    }));
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-3', fetchImpl: mock });
+    const result = await client.listDeals({ pipeline_id: 'pipe-1', page: 2, pageSize: 100, q: 'Consulting' });
+    expect(mock.mock.calls[0]![0]).toBe('https://api.example.test/api/v1/deals?pipeline_id=pipe-1&page=2&pageSize=100&q=Consulting');
+    expect(result.meta.total).toBe(102);
+    expect(result.meta.hasPrev).toBe(true);
+  });
+
 });
