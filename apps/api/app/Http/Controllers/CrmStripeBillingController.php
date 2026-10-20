@@ -34,10 +34,12 @@ final class CrmStripeBillingController
         if (!$plan || !$price) {
             throw ValidationException::withMessages(['plan_code' => 'Plan is not available for Stripe Checkout.']);
         }
-        $intent = DB::transaction(function () use ($context, $plan, $price): string {
+        [$intent, $customer] = DB::transaction(function () use ($context, $plan, $price): array {
             DB::table('tenants')->where('id', $context->tenantId)->lockForUpdate()->firstOrFail();
-            if (DB::table('crm_stripe_subscription_links')->where('tenant_id', $context->tenantId)->exists()) {
-                StripeBilling::denied('billing_already_linked', 'Use the customer portal for existing Stripe subscriptions.');
+            $link = DB::table('crm_stripe_subscription_links')->where('tenant_id', $context->tenantId)->first();
+            $subscription = DB::table('crm_tenant_subscriptions')->where('tenant_id', $context->tenantId)->first();
+            if ($link && !in_array($subscription?->status, ['canceled', 'expired'], true)) {
+                StripeBilling::denied('billing_already_linked', 'Use the customer portal for active Stripe subscriptions.');
             }
             if (DB::table('crm_stripe_checkout_intents')
                 ->where('tenant_id', $context->tenantId)
@@ -50,19 +52,21 @@ final class CrmStripeBillingController
                 'id' => $id, 'tenant_id' => $context->tenantId, 'plan_id' => $plan->id,
                 'price_id' => $price, 'status' => 'created', 'created_at' => now(), 'updated_at' => now(),
             ]);
-            return $id;
+            return [$id, $link?->stripe_customer_id];
         });
         $return = (string) config('crm_stripe.return_url');
-        $session = StripeBilling::api('checkout/sessions', [
+        $details = [
             'mode' => 'subscription',
             'line_items' => [['price' => $price, 'quantity' => 1]],
             'success_url' => $return.(str_contains($return, '?') ? '&' : '?').'checkout=success',
             'cancel_url' => $return.(str_contains($return, '?') ? '&' : '?').'checkout=canceled',
             'client_reference_id' => $intent,
-            'customer_email' => $request->user()->email,
             'metadata' => ['tenant_id' => $context->tenantId, 'intent_id' => $intent],
             'subscription_data' => ['metadata' => ['tenant_id' => $context->tenantId, 'intent_id' => $intent]],
-        ], 'crm-checkout-'.$intent);
+        ];
+        if ($customer) $details['customer'] = $customer;
+        else $details['customer_email'] = $request->user()->email;
+        $session = StripeBilling::api('checkout/sessions', $details, 'crm-checkout-'.$intent);
         if (!str_starts_with((string) $session['id'], 'cs_test_') ||
             !str_starts_with((string) ($session['url'] ?? ''), 'https://checkout.stripe.com/')) {
             StripeBilling::denied('billing_provider_error', 'Stripe Checkout returned an invalid session.');
