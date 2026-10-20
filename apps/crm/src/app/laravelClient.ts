@@ -224,7 +224,7 @@ export interface ApiPipelineReport {
   pipelines: Array<{
     id: string;
     name: string;
-    stages: Array<{ id: string; name: string; kind: ApiStageKind; position: number }>;
+    stages: Array<{ id: string; name: string; kind: ApiStageKind; position: number; probability: number }>;
   }>;
   stage_currency_totals: Array<{
     pipeline_id: string; stage_id: string;
