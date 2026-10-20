@@ -192,4 +192,30 @@ describe('Laravel browser client', () => {
     expect(JSON.parse(String(init?.body))).toEqual({ status: 'completed', expected_version: 1 });
   });
 
+  it('fails closed without organization selection on live reporting methods', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(client.overviewReport()).rejects.toBeInstanceOf(ApiError);
+    await expect(client.pipelineReport()).rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('requests current organization reporting with credentialed session cookies', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({ as_of: '2026-10-20', totals: { leads: 3 } }));
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-4', fetchImpl: mock });
+    const result = await client.overviewReport();
+    expect(mock.mock.calls[0]![0]).toBe('https://api.example.test/api/v1/reports/overview');
+    expect(new Headers(mock.mock.calls[0]![1]?.headers).get('X-Organization-ID')).toBe('org-4');
+    expect(mock.mock.calls[0]![1]?.credentials).toBe('include');
+    expect(result.totals.leads).toBe(3);
+  });
+  it('encodes pipeline selection without sending tenant or currency conversion overrides', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({ pipelines: [], stage_currency_totals: [] }));
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-4', fetchImpl: mock });
+    await client.pipelineReport('pipeline/with & spaces');
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/reports/pipelines?pipeline_id=pipeline%2Fwith%20%26%20spaces');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-4');
+    expect(init?.body).toBeUndefined();
+  });
+
 });
