@@ -159,6 +159,61 @@ final class SubscriptionEntitlementsTest extends TestCase
         ])->assertOk();
     }
 
+
+    public function test_starter_seat_limit_blocks_fourth_user_even_without_legacy_seat_cap(): void
+    {
+        Notification::fake();
+        $org = $this->org('Alpha');
+        $this->subscribe($org->tenant);
+        $owner = $this->member($org);
+        $this->member($org, 'member');
+        $this->member($org, 'viewer');
+        $recipient = User::create([
+            'name' => 'Invitee', 'email' => 'invitee-'.Str::random(7).'@example.test',
+            'password' => 'SecurePassword123!',
+        ]);
+        $recipient->forceFill(['email_verified_at' => now()])->save();
+        $this->actingAs($owner)->withHeader('X-Organization-ID', $org->id);
+        $this->getJson('/api/v1/organizations/usage')->assertJsonPath('data.seatLimit', 3)
+            ->assertJsonPath('data.seatsUsed', 3);
+        $this->postJson('/api/v1/organizations/invitations', [
+            'email' => $recipient->email, 'role' => 'member',
+        ])->assertCreated();
+        $token = '';
+        Notification::assertSentOnDemand(\App\Notifications\OrganizationInvitationNotification::class,
+            function ($notification) use (&$token) {
+                $token = $notification->token; return true;
+            });
+        $this->actingAs($recipient)->postJson('/api/v1/invitations/accept', [
+            'token' => $token,
+        ])->assertStatus(409)->assertJsonPath('error.code', 'entitlement_missing');
+        $this->assertDatabaseMissing('organization_memberships', [
+            'organization_id' => $org->id, 'user_id' => $recipient->id,
+        ]);
+    }
+
+    public function test_activity_quota_reclaims_capacity_after_archive(): void
+    {
+        $org = $this->org('Alpha');
+        $this->subscribe($org->tenant);
+        $planId = DB::table('crm_subscription_plans')->where('code', 'starter')->value('id');
+        $limits = json_decode(DB::table('crm_subscription_plans')->where('id', $planId)->value('limits'), true);
+        $limits['activities'] = 1;
+        DB::table('crm_subscription_plans')->where('id', $planId)->update(['limits' => json_encode($limits)]);
+        $this->actingAs($this->member($org))->withHeader('X-Organization-ID', $org->id);
+        $id = $this->postJson('/api/v1/activities', [
+            'title' => 'First task', 'kind' => 'task',
+        ])->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/activities', [
+            'title' => 'Second task', 'kind' => 'task',
+        ])->assertStatus(409)->assertJsonPath('error.code', 'entitlement_missing');
+        $this->deleteJson('/api/v1/activities/'.$id)->assertOk();
+        $this->postJson('/api/v1/activities', [
+            'title' => 'Second task', 'kind' => 'task',
+        ])->assertCreated();
+        $this->assertDatabaseCount('crm_activity_events', 3);
+    }
+
     public function test_operator_command_changes_state_with_version_check_and_journal(): void
     {
         $org = $this->org('Alpha');
