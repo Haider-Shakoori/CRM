@@ -7,6 +7,7 @@ use App\Http\Controllers\CrmContactController;
 use App\Http\Controllers\CrmPipelineController;
 use App\Http\Controllers\CrmDealController;
 use App\Http\Controllers\CrmActivityController;
+use App\Http\Controllers\CrmReportingController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\AuditController;
 use Illuminate\Http\Request;
@@ -34,6 +35,8 @@ Route::middleware('auth:sanctum')->group(function () {
                 'timezone' => $organization->timezone,
             ]]);
         });
+        Route::get('/reports/overview', [CrmReportingController::class, 'overview']);
+        Route::get('/reports/pipelines', [CrmReportingController::class, 'pipelines']);
         Route::get('/accounts', [CrmAccountController::class, 'index']);
         Route::get('/accounts/{id}', [CrmAccountController::class, 'show'])->whereUuid('id');
         Route::get('/contacts', [CrmContactController::class, 'index']);
