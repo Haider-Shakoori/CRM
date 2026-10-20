@@ -26,7 +26,7 @@ type Detail = {
 };
 type Envelope<T> = { ok: boolean; data?: T; error?: { message?: string } };
 
-const API = (import.meta.env.VITE_CRM_API_URL as string).replace(/\/+$/, '');
+const API = ((import.meta.env.VITE_CRM_API_URL as string | undefined) ?? '').replace(/\/+$/, '');
 const crmUrl = import.meta.env.VITE_CRM_URL ?? 'http://localhost:5173';
 const err = (cause: unknown) => cause instanceof Error ? cause.message : 'A request failed.';
 
