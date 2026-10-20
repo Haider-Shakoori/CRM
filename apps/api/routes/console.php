@@ -39,6 +39,10 @@ Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code}
             $tenant = \App\Models\Tenant::query()->whereKey($tenantId)->lockForUpdate()->first();
             $plan = \Illuminate\Support\Facades\DB::table('crm_subscription_plans')->where('code', $code)->first();
             if (!$tenant || !$plan) throw new \RuntimeException('Tenant or plan not found.');
+            if (\Illuminate\Support\Facades\DB::table('crm_stripe_subscription_links')
+                ->where('tenant_id', $tenantId)->exists()) {
+                throw new \RuntimeException('Stripe-managed subscriptions cannot be changed manually.');
+            }
             $db = \Illuminate\Support\Facades\DB::table('crm_tenant_subscriptions');
             $current = (clone $db)->where('tenant_id', $tenantId)->lockForUpdate()->first();
             if ($expectedVersion !== null && (!$current || (int) $expectedVersion !== (int) $current->version)) {
