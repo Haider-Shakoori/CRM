@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import LeadConversionForm from './LeadConversionForm';
 import {
   ApiError,
   createLaravelClient,
@@ -40,7 +41,6 @@ export default function ApiWorkspace() {
   const [edit, setEdit] = React.useState<{ id: string; version: number; draft: EditDraft } | null>(null);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [convert, setConvert] = React.useState<{ id: string; version: number; email: string } | null>(null);
-  const [conversionDraft, setConversionDraft] = React.useState({ first_name: '', last_name: '', account_name: '' });
   const [conversionResult, setConversionResult] = React.useState<ApiLeadConversion | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [actionError, setActionError] = React.useState('');
@@ -136,28 +136,6 @@ export default function ApiWorkspace() {
     } catch (cause) { handleError(cause, 'Could not delete lead.'); }
     finally { setBusy(false); }
   };
-  const submitConversion = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!client || !canEdit || !convert || busy) return;
-    setBusy(true); setActionError(''); setNotice(''); setConversionResult(null);
-    try {
-      const created = await client.convertLead(convert.id, {
-        expected_version: convert.version,
-        first_name: conversionDraft.first_name.trim(),
-        last_name: conversionDraft.last_name.trim(),
-        account_name: conversionDraft.account_name.trim(),
-      });
-      setConversionResult(created);
-      setConvert(null); setEdit(null); setDeleteId(null); refresh();
-      setNotice('Lead converted to a Contact and Account. Conversion history retained.');
-    } catch (cause) {
-      handleError(cause, 'Could not convert Lead.');
-      if (cause instanceof ApiError && cause.status === 409) {
-        setConvert(null); refresh();
-        setNotice('Lead was updated elsewhere. Refresh it before trying again.');
-      }
-    } finally { setBusy(false); }
-  };
   const resendVerification = async () => {
     if (!authClient || busy) return;
     setBusy(true); setActionError(''); setNotice('');
@@ -212,7 +190,8 @@ export default function ApiWorkspace() {
                     onChange={(event) => {
                       setOrgId(event.target.value);
                       setPage(1); setQuery(''); setSearchInput(''); setStatus('');
-                      setEdit(null); setDeleteId(null); setActionError(''); setNotice('');
+                      setEdit(null); setDeleteId(null); setConvert(null); setConversionResult(null);
+                      setActionError(''); setNotice('');
                     }}>
                     {identity.organizations.map((org) => <option key={org.id} value={org.id}>{org.name} ({org.role})</option>)}
                   </select>
@@ -261,8 +240,6 @@ export default function ApiWorkspace() {
                                     {lead.status !== 'converted' && <button type="button" disabled={!canEdit || busy}
                                       className="underline disabled:opacity-50" onClick={() => {
                                         setEdit(null); setDeleteId(null); setConversionResult(null);
-                                        const [first, ...last] = lead.name.trim().split(/\s+/);
-                                        setConversionDraft({ first_name: first ?? '', last_name: last.join(' '), account_name: '' });
                                         setConvert({ id: lead.id, version: lead.version, email: lead.email ?? '' });
                                       }}>Convert</button>}
                                     <button type="button" disabled={!canEdit || busy || lead.status === 'converted'} className="underline disabled:opacity-50"
@@ -307,30 +284,19 @@ export default function ApiWorkspace() {
                       <div className="flex gap-3 text-sm">
                         <Link className="underline" to="/crm/contacts">View Contacts</Link>
                         <Link className="underline" to="/crm/accounts">View Accounts</Link>
+                        {conversionResult.deal_id && <Link className="underline" to="/crm/deals">View Deal</Link>}
                       </div>
                     </section>}
-                    {convert && canEdit && <form aria-label="Convert lead to contact and account"
-                      className="space-y-3 rounded border p-4" onSubmit={(event) => { void submitConversion(event); }}>
-                      <h2 className="font-semibold">Convert Lead</h2>
-                      <p className="text-sm text-muted">Creates a new Account and Contact; keeps the Lead for conversion history. No Deal is created automatically.</p>
-                      <label className="block text-sm">First name
-                        <input required maxLength={120} value={conversionDraft.first_name} className="block w-full rounded border p-2"
-                          onChange={(event) => setConversionDraft((p) => ({ ...p, first_name: event.target.value }))}/>
-                      </label>
-                      <label className="block text-sm">Last name
-                        <input required maxLength={120} value={conversionDraft.last_name} className="block w-full rounded border p-2"
-                          onChange={(event) => setConversionDraft((p) => ({ ...p, last_name: event.target.value }))}/>
-                      </label>
-                      <label className="block text-sm">New Account name
-                        <input required maxLength={200} value={conversionDraft.account_name} className="block w-full rounded border p-2"
-                          onChange={(event) => setConversionDraft((p) => ({ ...p, account_name: event.target.value }))}/>
-                      </label>
-                      <p className="text-xs text-muted">Contact email: {convert.email || 'Not specified'}</p>
-                      <div className="flex gap-3">
-                        <button type="submit" disabled={busy} className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-50">Confirm conversion</button>
-                        <button type="button" className="rounded border px-4 py-2" onClick={() => setConvert(null)}>Cancel</button>
-                      </div>
-                    </form>}
+                    {convert && canEdit && client &&
+                      <LeadConversionForm key={orgId + ':' + convert.id}
+                        client={client}
+                        lead={{ id: convert.id, name: items.find((entry) => entry.id === convert.id)?.name ?? '',
+                          email: convert.email, version: convert.version }}
+                        onCancel={() => setConvert(null)}
+                        onConverted={(created) => {
+                          setConversionResult(created); setConvert(null); setEdit(null); setDeleteId(null);
+                          refresh(); setNotice('Lead converted. Linked CRM records and audit history were saved.');
+                        }} />}
                     {deleteId && canEdit && (
                       <div className="space-y-2 rounded border p-4" role="group" aria-label="Confirm lead deletion">
                         <p>Delete this lead permanently?</p>
