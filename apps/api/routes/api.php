@@ -10,6 +10,7 @@ use App\Http\Controllers\CrmActivityController;
 use App\Http\Controllers\CrmReportingController;
 use App\Http\Controllers\CrmForecastController;
 use App\Http\Controllers\CrmLeadConversionController;
+use App\Http\Controllers\CrmSubscriptionController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\AuditController;
 use Illuminate\Http\Request;
@@ -21,11 +22,13 @@ Route::get('/health', fn () => response()->json([
 ]));
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/subscription/plans', [CrmSubscriptionController::class, 'catalog']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/invitations/accept', [InvitationController::class, 'accept'])->middleware('verified');
     Route::middleware(['verified', 'organization'])->group(function () {
         Route::post('/organizations/invitations', [InvitationController::class, 'store']);
         Route::get('/organizations/usage', [AuditController::class, 'usage']);
+        Route::get('/organizations/subscription', [CrmSubscriptionController::class, 'show']);
         Route::get('/organizations/audit', [AuditController::class, 'index']);
         Route::get('/organizations/current', function (Request $request) {
             $organization = $request->attributes->get('crm_organization');
