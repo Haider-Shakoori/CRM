@@ -2,7 +2,7 @@
 
 namespace App\Support;
 
-use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -31,6 +31,13 @@ final class StripeBilling
         }
     }
 
+    public static function denied(string $code, string $message, int $status = 409): never
+    {
+        throw new HttpResponseException(response()->json(['ok' => false, 'error' => [
+            'code' => $code, 'message' => $message, 'retryable' => false,
+        ]], $status));
+    }
+
     private static function validReturnUrl(string $url): bool
     {
         return str_starts_with($url, 'https://')
@@ -47,9 +54,13 @@ final class StripeBilling
     public static function api(string $path, array $data, string $idempotencyKey): array
     {
         self::requireConfigured();
-        $response = Http::withBasicAuth((string) config('crm_stripe.secret'), '')
+        try {
+            $response = Http::withBasicAuth((string) config('crm_stripe.secret'), '')
             ->withHeaders(['Idempotency-Key' => $idempotencyKey])
             ->asForm()->timeout(15)->post('https://api.stripe.com/v1/'.$path, $data);
+        } catch (ConnectionException) {
+            self::denied('billing_provider_error', 'Stripe is temporarily unreachable.', 502);
+        }
         // Never return Stripe error bodies to the browser: upstream errors can
         // carry sensitive payment/customer details.
         if (!$response->successful()) {
