@@ -21,6 +21,11 @@ const liveRouteMap: Record<string, string> = {
  * navigation shell, synthetic records or a silent fallback on API failures.
  * Unsupported deep links remain blocked until a real contract exists.
  */
+export function liveRouteDestination(path: string): string | null {
+  const pathname = path.replace(/\\/$/, '') || '/app';
+  return liveRouteMap[pathname === '/app' ? '/app/home' : pathname] ?? null;
+}
+
 export function LiveRouteBridge() {
   const pathname = useLocation().pathname.replace(/\/$/, '') || '/app';
   if (!import.meta.env.VITE_CRM_API_URL) {
@@ -29,7 +34,7 @@ export function LiveRouteBridge() {
       <p role="alert">Live mode requires VITE_CRM_API_URL. Demo data cannot substitute for tenant records.</p>
     </main>;
   }
-  const destination = liveRouteMap[pathname === '/app' ? '/app/home' : pathname];
+  const destination = liveRouteDestination(pathname);
   if (destination) return <Navigate to={destination} replace />;
   return <main className="mx-auto max-w-2xl space-y-4 p-6">
     <h1 className="text-xl font-semibold">Not yet available with live CRM data</h1>
