@@ -295,4 +295,34 @@ describe('Laravel browser client', () => {
     expect(result.deal_id).toBe('d');
   });
 
+  it('fails closed on subscription usage without an organization ID', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(api.subscriptionUsage()).rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('requests organization subscription status with secure credentialed cookies', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({
+      subscription: { plan: 'starter', status: 'active', limits: { seats: 3 } },
+      usage: { seats: 2 }, billing_connected: false,
+    }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test',
+      organizationId: 'org-1', fetchImpl: mock });
+    const value = await api.subscriptionUsage();
+    const [url, options] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/organizations/subscription');
+    expect(new Headers(options?.headers).get('X-Organization-ID')).toBe('org-1');
+    expect(options?.credentials).toBe('include');
+    expect(value.subscription.plan).toBe('starter');
+    expect(value.billing_connected).toBe(false);
+  });
+  it('uses a separate read-only plan catalog endpoint without a forged plan mutation', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success([{ code: 'starter', checkout_available: false }]));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    const plans = await api.subscriptionPlans();
+    expect(mock.mock.calls[0]![0]).toBe('https://api.example.test/api/v1/subscription/plans');
+    expect(mock.mock.calls[0]![1]?.method).not.toBe('POST');
+    expect(plans[0]?.checkout_available).toBe(false);
+  });
+
 });
