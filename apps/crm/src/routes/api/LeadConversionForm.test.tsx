@@ -27,7 +27,7 @@ describe('Lead conversion form', () => {
     await screen.findByText(/Records with the same email were found/);
     expect((screen.getByRole('button', { name: 'Confirm conversion' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('checkbox', { name: /I reviewed the matches/ }));
-    await user.type(screen.getByLabelText('New Account name'), 'Unique Account');
+    await user.type(screen.getByLabelText(/^New Account name/), 'Unique Account');
     await user.click(screen.getByRole('button', { name: 'Confirm conversion' }));
     await waitFor(() => expect(done).toHaveBeenCalledTimes(1));
     const payload = JSON.parse(String(fetcher.mock.calls.find(([url]) => String(url).endsWith('/convert'))?.[1]?.body));
