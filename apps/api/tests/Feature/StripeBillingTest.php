@@ -200,4 +200,97 @@ final class StripeBillingTest extends TestCase
         $this->actingAs($viewer)->withHeader('X-Organization-ID', $org->id);
         $this->postJson('/api/v1/organizations/billing/portal')->assertNotFound();
     }
+    public function test_failed_initial_payment_preserves_starter_until_valid_activation(): void
+    {
+        [$tenant] = $this->owner();
+        $this->configured();
+        $intent = (string) Str::uuid();
+        $team = DB::table('crm_subscription_plans')->where('code', 'team')->first();
+        $starter = DB::table('crm_subscription_plans')->where('code', 'starter')->first();
+        DB::table('crm_stripe_checkout_intents')->insert([
+            'id' => $intent, 'tenant_id' => $tenant->id, 'plan_id' => $team->id,
+            'price_id' => 'price_team_test', 'status' => 'pending',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $pending = $this->subscriptionEvent('evt_pending_first', 'customer.subscription.created',
+            $intent, $tenant->id, time() - 5, 'incomplete');
+        $this->postEvent($pending)->assertOk()
+            ->assertJsonPath('data.handled', 'subscription_pending_no_entitlements');
+        $this->assertDatabaseHas('crm_tenant_subscriptions', [
+            'tenant_id' => $tenant->id, 'plan_id' => $starter->id, 'status' => 'active',
+        ]);
+        $active = $this->subscriptionEvent('evt_activated_later', 'customer.subscription.updated',
+            $intent, $tenant->id, time(), 'active');
+        $this->postEvent($active)->assertOk()->assertJsonPath('data.handled', 'subscription_synced');
+        $this->assertDatabaseHas('crm_tenant_subscriptions', [
+            'tenant_id' => $tenant->id, 'plan_id' => $team->id, 'status' => 'active',
+        ]);
+    }
+
+    public function test_canceled_subscription_can_restart_checkout_with_same_customer_without_early_activation(): void
+    {
+        [$tenant, $org, $owner] = $this->owner();
+        $this->configured();
+        DB::table('crm_tenant_subscriptions')->where('tenant_id', $tenant->id)
+            ->update(['status' => 'canceled']);
+        DB::table('crm_stripe_subscription_links')->insert([
+            'tenant_id' => $tenant->id, 'stripe_customer_id' => 'cus_test_x',
+            'stripe_subscription_id' => 'sub_test_old',
+            'plan_id' => DB::table('crm_subscription_plans')->where('code', 'team')->value('id'),
+            'last_event_created' => time() - 60, 'last_event_id' => 'evt_old',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        Http::fake(['api.stripe.com/v1/checkout/sessions' => Http::response([
+            'id' => 'cs_test_resubscribe', 'url' => 'https://checkout.stripe.com/c/pay/cs_test_resubscribe',
+        ])]);
+        $this->actingAs($owner)->withHeader('X-Organization-ID', $org->id);
+        $this->postJson('/api/v1/organizations/billing/checkout', ['plan_code' => 'team'])
+            ->assertOk()->assertJsonPath('data.checkout_pending', true);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'checkout/sessions')
+            && str_contains($request->body(), 'cus_test_x'));
+        $intent = DB::table('crm_stripe_checkout_intents')->where('tenant_id', $tenant->id)->value('id');
+        $pending = $this->subscriptionEvent('evt_resub_pending', 'customer.subscription.created',
+            $intent, $tenant->id, time() - 1, 'incomplete');
+        $pending['data']['object']['id'] = 'sub_test_new';
+        $this->postEvent($pending)->assertOk()
+            ->assertJsonPath('data.handled', 'replacement_pending_no_entitlements');
+        $this->assertDatabaseHas('crm_stripe_subscription_links', [
+            'tenant_id' => $tenant->id, 'stripe_subscription_id' => 'sub_test_old',
+        ]);
+        $this->assertDatabaseHas('crm_tenant_subscriptions', [
+            'tenant_id' => $tenant->id, 'status' => 'canceled',
+        ]);
+        $activated = $this->subscriptionEvent('evt_resub_active', 'customer.subscription.updated',
+            $intent, $tenant->id, time() + 1, 'active');
+        $activated['data']['object']['id'] = 'sub_test_new';
+        $this->postEvent($activated)->assertOk()->assertJsonPath('data.handled', 'subscription_synced');
+        $this->assertDatabaseHas('crm_stripe_subscription_links', [
+            'tenant_id' => $tenant->id, 'stripe_subscription_id' => 'sub_test_new',
+        ]);
+        $this->assertDatabaseHas('crm_tenant_subscriptions', [
+            'tenant_id' => $tenant->id, 'status' => 'active',
+        ]);
+    }
+
+    public function test_manual_operator_cli_cannot_override_a_stripe_linked_subscription(): void
+    {
+        [$tenant] = $this->owner();
+        DB::table('crm_stripe_subscription_links')->insert([
+            'tenant_id' => $tenant->id, 'stripe_customer_id' => 'cus_linked',
+            'stripe_subscription_id' => 'sub_linked',
+            'plan_id' => DB::table('crm_subscription_plans')->where('code', 'team')->value('id'),
+            'last_event_created' => 0, 'last_event_id' => '',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $result = \Illuminate\Support\Facades\Artisan::call('crm:subscription:set', [
+            'tenant' => $tenant->id, 'plan' => 'business', 'status' => 'active',
+            '--expected-version' => '1',
+        ]);
+        $this->assertSame(1, $result);
+        $this->assertDatabaseHas('crm_tenant_subscriptions', [
+            'tenant_id' => $tenant->id,
+            'plan_id' => DB::table('crm_subscription_plans')->where('code', 'starter')->value('id'),
+        ]);
+    }
+
 }
