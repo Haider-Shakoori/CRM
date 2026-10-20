@@ -210,6 +210,7 @@ export default function ApiDeals() {
       <Link to="/crm/leads" className="underline">Live Leads</Link>
       <Link to="/crm/accounts" className="underline">Live Accounts</Link>
       <Link to="/crm/contacts" className="underline">Live Contacts</Link>
+      <Link to="/crm/my-work" className="underline">Live My Work</Link>
       <Link to="/app/deals" className="underline">Demo Deals</Link>
       <button type="button" disabled={busy} className="ml-auto underline" onClick={() => { void signOut(); }}>Sign out</button>
     </nav>
