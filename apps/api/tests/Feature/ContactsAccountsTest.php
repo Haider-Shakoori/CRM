@@ -9,6 +9,7 @@ use App\Models\OrganizationMembership;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -188,8 +189,24 @@ class ContactsAccountsTest extends TestCase
         // Server-side scope blocks reads even from background jobs without an organization context.
         $this->assertSame(0, CrmAccount::query()->count());
         $this->assertSame(0, CrmContact::query()->count());
-        // The schema declares a composite FK so database writers cannot silently forge the link.
-        $this->assertTrue(DB::getSchemaBuilder()->hasTable('crm_contacts'));
-        $this->assertNotSame($alpha->id, $foreign->organization_id);
+        // Even raw database writes cannot join records belonging to two organizations.
+        // A nested transaction keeps the failed FK statement from poisoning the test transaction.
+        try {
+            DB::transaction(function () use ($alpha, $foreign): void {
+                DB::table('crm_contacts')->insert([
+                    'id' => (string) Str::uuid(),
+                    'organization_id' => $alpha->id,
+                    'account_id' => $foreign->id,
+                    'first_name' => 'Invalid',
+                    'last_name' => 'Link',
+                    'version' => 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            });
+            $this->fail('Expected the database to reject a cross-organization account link.');
+        } catch (QueryException $error) {
+            $this->assertSame('23503', $error->errorInfo[0]);
+        }
     }
 }
