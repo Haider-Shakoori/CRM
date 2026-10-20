@@ -7,9 +7,10 @@ import {
   type ApiIdentity,
   type ApiLead,
   type ApiLeadStatus,
+  type ApiPage,
 } from '../../app/laravelClient';
 
-type ListState = { organizationId: string; items: ApiLead[]; error?: string };
+type ListState = { key: string; items: ApiLead[]; meta?: ApiPage<ApiLead>['meta']; error?: string };
 type EditDraft = { name: string; email: string; status: ApiLeadStatus; notes: string };
 
 function errorText(cause: unknown, fallback: string): string {
@@ -28,6 +29,10 @@ export default function ApiWorkspace() {
   const [identity, setIdentity] = React.useState<ApiIdentity | null>(null);
   const [sessionError, setSessionError] = React.useState('');
   const [orgId, setOrgId] = React.useState('');
+  const [searchInput, setSearchInput] = React.useState('');
+  const [query, setQuery] = React.useState('');
+  const [status, setStatus] = React.useState<ApiLeadStatus | ''>('');
+  const [page, setPage] = React.useState(1);
   const [result, setResult] = React.useState<ListState | null>(null);
   const [reloadCount, setReloadCount] = React.useState(0);
   const [newName, setNewName] = React.useState('');
@@ -40,6 +45,7 @@ export default function ApiWorkspace() {
     () => apiBase ? createLaravelClient({ baseUrl: apiBase, organizationId: orgId }) : null,
     [apiBase, orgId],
   );
+  const queryKey = JSON.stringify([orgId, page, query, status, reloadCount]);
 
   const handleError = React.useCallback((cause: unknown, fallback: string) => {
     if (cause instanceof ApiError && cause.status === 401) {
@@ -68,19 +74,19 @@ export default function ApiWorkspace() {
   React.useEffect(() => {
     if (!client || !orgId || !identity?.user.email_verified) return;
     let current = true;
-    void client.listLeads({ pageSize: 100 }).then((data) => {
-      if (current) setResult({ organizationId: orgId, items: data.items });
+    void client.listLeads({ page, pageSize: 25, q: query || undefined, status: status || undefined }).then((data) => {
+      if (current) setResult({ key: queryKey, items: data.items, meta: data.meta });
     }).catch((cause: unknown) => {
       if (!current) return;
       if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
-      else setResult({ organizationId: orgId, items: [], error: errorText(cause, 'Could not load leads.') });
+      else setResult({ key: queryKey, items: [], error: errorText(cause, 'Could not load leads.') });
     });
     return () => { current = false; };
-  }, [client, orgId, identity?.user.email_verified, reloadCount, navigate]);
+  }, [client, orgId, identity?.user.email_verified, page, query, status, queryKey, navigate]);
 
   const selectedOrg = identity?.organizations.find((org) => org.id === orgId);
   const canEdit = !!selectedOrg && selectedOrg.role !== 'viewer';
-  const visible = result?.organizationId === orgId ? result : null;
+  const visible = result?.key === queryKey ? result : null;
   const items = visible?.items ?? [];
   const refresh = () => setReloadCount((value) => value + 1);
 
@@ -91,6 +97,7 @@ export default function ApiWorkspace() {
     try {
       await client.createLead({ name: newName.trim() });
       setNewName('');
+      setPage(1);
       refresh();
       setNotice('Lead created in the selected organization.');
     } catch (cause) { handleError(cause, 'Could not create lead.'); }
@@ -149,11 +156,12 @@ export default function ApiWorkspace() {
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">CRM — Live API workspace</h1>
-          <p className="text-sm text-muted">Real Laravel/PostgreSQL Leads. Other CRM modules remain a demo.</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">CRM / Sales / Leads</p>
+          <h1 className="text-2xl font-bold">Leads</h1>
+          <p className="text-sm text-muted">Live Laravel/PostgreSQL data. Only this Leads view is connected; other CRM modules remain a demo.</p>
         </div>
         <nav className="flex gap-4">
-          <Link className="underline" to="/app/home">Demo CRM</Link>
+          <Link className="underline" to="/app/leads">Demo Leads</Link>
           <button type="button" className="underline disabled:opacity-50" disabled={busy} onClick={() => { void logout(); }}>Sign out</button>
         </nav>
       </header>
@@ -174,6 +182,7 @@ export default function ApiWorkspace() {
                   <select aria-label="Organization" disabled={busy} className="block w-full rounded border p-2 disabled:opacity-50" value={orgId}
                     onChange={(event) => {
                       setOrgId(event.target.value);
+                      setPage(1); setQuery(''); setSearchInput(''); setStatus('');
                       setEdit(null); setDeleteId(null); setActionError(''); setNotice('');
                     }}>
                     {identity.organizations.map((org) => <option key={org.id} value={org.id}>{org.name} ({org.role})</option>)}
@@ -188,13 +197,28 @@ export default function ApiWorkspace() {
                         type="submit" disabled={busy || !canEdit}>Create lead</button>
                       <button type="button" className="rounded border px-4 py-2" onClick={refresh}>Refresh</button>
                     </form>
+                    <form className="flex flex-wrap items-end gap-3 rounded border p-3"
+                      onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(searchInput.trim()); }}>
+                      <label className="min-w-48 flex-1 space-y-1 text-sm">Search leads
+                        <input type="search" aria-label="Search leads" value={searchInput} onChange={(event) => setSearchInput(event.target.value)}
+                          className="block w-full rounded border p-2" placeholder="Lead name" />
+                      </label>
+                      <label className="space-y-1 text-sm">Status
+                        <select aria-label="Filter by status" value={status} className="block rounded border p-2"
+                          onChange={(event) => { setStatus(event.target.value as ApiLeadStatus | ''); setPage(1); }}>
+                          <option value="">All statuses</option>
+                          {LEAD_STATUSES.map((entry) => <option value={entry} key={entry}>{entry}</option>)}
+                        </select>
+                      </label>
+                      <button type="submit" className="rounded border px-4 py-2">Search</button>
+                    </form>
                     {actionError && <p role="alert" className="text-red-600">{actionError}</p>}
                     {notice && <p role="status">{notice}</p>}
                     {!visible ? <p role="status">Loading leads for the selected organization…</p>
                       : visible.error ? <p role="alert">{visible.error}</p>
                         : (
                           <div className="overflow-x-auto rounded border">
-                            <p className="px-3 pt-2 text-xs text-muted">Showing up to 100 most recent Leads for this organization.</p>
+                            <p className="px-3 pt-2 text-xs text-muted">Organization-scoped records · {visible.meta?.total ?? items.length} total</p>
                             <table className="w-full text-left text-sm">
                               <thead><tr><th className="p-3">Name</th><th className="p-3">Status</th><th className="p-3">Email</th><th className="p-3">Version</th><th className="p-3">Actions</th></tr></thead>
                               <tbody>{items.map((lead) => (
@@ -211,7 +235,16 @@ export default function ApiWorkspace() {
                                 </tr>
                               ))}</tbody>
                             </table>
-                            {items.length === 0 && <p className="p-4 text-sm">No leads in this organization.</p>}
+                            {items.length === 0 && <p className="p-4 text-sm">No leads match the current filters.</p>}
+                            {visible.meta && <nav aria-label="Lead pages" className="flex items-center justify-between gap-3 border-t p-3 text-sm">
+                              <span>Page {visible.meta.page} of {visible.meta.totalPages} · {visible.meta.total} leads</span>
+                              <div className="flex gap-2">
+                                <button type="button" className="rounded border px-3 py-1 disabled:opacity-50"
+                                  disabled={!visible.meta.hasPrev || busy} onClick={() => { setEdit(null); setDeleteId(null); setPage((value) => Math.max(1, value - 1)); }}>Previous</button>
+                                <button type="button" className="rounded border px-3 py-1 disabled:opacity-50"
+                                  disabled={!visible.meta.hasNext || busy} onClick={() => { setEdit(null); setDeleteId(null); setPage((value) => value + 1); }}>Next</button>
+                              </div>
+                            </nav>}
                           </div>
                         )}
                     {edit && canEdit && (

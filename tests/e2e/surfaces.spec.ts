@@ -47,6 +47,17 @@ test('Laravel authentication and recovery previews render safely without backend
   await page.goto('http://127.0.0.1:5173/reset-password');
   await expect(page.getByRole('alert')).toBeVisible();
   await page.goto('http://127.0.0.1:5173/api-workspace');
-  await expect(page.getByRole('heading', { name: 'CRM — Live API workspace' })).toBeVisible();
+  await expect(page).toHaveURL(/\/crm\/leads$/);
+  await expect(page.getByRole('heading', { name: 'Leads', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('demo Leads provides an explicit entry to the independent live Leads route', async ({ page }) => {
+  await page.goto('http://127.0.0.1:5173/app/leads');
+  const live = page.getByRole('link', { name: 'Live Leads (Laravel)' });
+  await expect(live).toBeVisible();
+  await live.click();
+  await expect(page).toHaveURL(/\/crm\/leads$/);
+  await expect(page.getByRole('heading', { name: 'Leads', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Demo Leads' })).toHaveAttribute('href', '/app/leads');
 });
