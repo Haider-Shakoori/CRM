@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CrmActivity;
+
 use App\Models\Lead;
 use App\Support\AuditTrail;
 use App\Support\OrganizationContext;
@@ -98,6 +100,12 @@ final class LeadController
     public function destroy(Request $request, string $id): JsonResponse
     {
         $lead = Lead::query()->findOrFail($id);
+        if (CrmActivity::withTrashed()->where('lead_id', $id)->exists()) {
+            return response()->json(['ok' => false, 'error' => [
+                'code' => 'conflict', 'message' => 'Unlink linked activities before deleting this lead.',
+                'retryable' => false,
+            ]], 409);
+        }
         $lead->delete();
         AuditTrail::current($request, 'lead.deleted', 'lead', $id);
 
