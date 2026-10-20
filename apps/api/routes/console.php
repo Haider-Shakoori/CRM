@@ -15,13 +15,13 @@ Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code}
     if (!in_array($status, ['active', 'trialing', 'past_due', 'canceled', 'expired'], true)) {
         $this->error('Invalid status.'); return 1;
     }
-    if (!\\Illuminate\\Support\\Str::isUuid($tenantId)) {
+    if (!\Illuminate\Support\Str::isUuid($tenantId)) {
         $this->error('Invalid tenant UUID.'); return 1;
     }
     try {
         $ends = $this->option('ends');
         if ($ends !== null && $ends !== 'none') {
-            $ends = \\Illuminate\\Support\\Carbon::parse($ends)->utc();
+            $ends = \Illuminate\Support\Carbon::parse($ends)->utc();
         } else {
             $ends = null;
         }
@@ -32,16 +32,16 @@ Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code}
         if ($expectedVersion !== null && (!ctype_digit((string) $expectedVersion) || (int) $expectedVersion < 1)) {
             $this->error('Version must be a positive integer.'); return 1;
         }
-        $result = \\Illuminate\\Support\\Facades\\DB::transaction(function () use ($tenantId, $code, $status, $ends, $expectedVersion): string {
-            $tenant = \\App\\Models\\Tenant::query()->whereKey($tenantId)->lockForUpdate()->first();
-            $plan = \\Illuminate\\Support\\Facades\\DB::table('crm_subscription_plans')->where('code', $code)->first();
-            if (!$tenant || !$plan) throw new \\RuntimeException('Tenant or plan not found.');
-            $db = \\Illuminate\\Support\\Facades\\DB::table('crm_tenant_subscriptions');
+        $result = \Illuminate\Support\Facades\DB::transaction(function () use ($tenantId, $code, $status, $ends, $expectedVersion): string {
+            $tenant = \App\Models\Tenant::query()->whereKey($tenantId)->lockForUpdate()->first();
+            $plan = \Illuminate\Support\Facades\DB::table('crm_subscription_plans')->where('code', $code)->first();
+            if (!$tenant || !$plan) throw new \RuntimeException('Tenant or plan not found.');
+            $db = \Illuminate\Support\Facades\DB::table('crm_tenant_subscriptions');
             $current = (clone $db)->where('tenant_id', $tenantId)->lockForUpdate()->first();
             if ($expectedVersion !== null && (!$current || (int) $expectedVersion !== (int) $current->version)) {
-                throw new \\RuntimeException('Subscription version mismatch; inspect before changing.');
+                throw new \RuntimeException('Subscription version mismatch; inspect before changing.');
             }
-            $id = $current?->id ?? (string) \\Illuminate\\Support\\Str::uuid();
+            $id = $current?->id ?? (string) \Illuminate\Support\Str::uuid();
             $newVersion = ($current?->version ?? 0) + 1;
             $values = [
                 'plan_id' => $plan->id, 'status' => $status,
@@ -55,8 +55,8 @@ Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code}
                     'id' => $id, 'tenant_id' => $tenantId, 'created_at' => now(),
                 ]));
             }
-            \\Illuminate\\Support\\Facades\\DB::table('crm_subscription_events')->insert([
-                'id' => (string) \\Illuminate\\Support\\Str::uuid(),
+            \Illuminate\Support\Facades\DB::table('crm_subscription_events')->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
                 'tenant_id' => $tenantId, 'subscription_id' => $id,
                 'action' => 'operator_updated', 'source' => 'operator_cli',
                 'changes' => json_encode(['plan' => $code, 'status' => $status,
@@ -69,7 +69,7 @@ Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code}
         });
         $this->info('Updated subscription '.$result.' for tenant '.$tenantId.'. No payment was processed.');
         return 0;
-    } catch (\\Throwable $e) {
+    } catch (\Throwable $e) {
         $this->error('Subscription update failed: '.$e->getMessage());
         return 1;
     }
