@@ -325,4 +325,41 @@ describe('Laravel browser client', () => {
     expect(plans[0]?.checkout_available).toBe(false);
   });
 
+  it('fails closed on Stripe Checkout and portal operations without tenant selection', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(client.stripeCheckout('team')).rejects.toBeInstanceOf(ApiError);
+    await expect(client.stripePortal()).rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('creates Stripe Checkout using only server plan code with credentials and CSRF', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({
+      checkout_url: 'https://checkout.stripe.com/c/test', checkout_pending: true,
+      message: 'Waiting for webhook',
+    }));
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test',
+      organizationId: 'org-1', fetchImpl: mock, getXsrfToken: () => 'xsrf-token' });
+    const result = await client.stripeCheckout('team');
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/organizations/billing/checkout');
+    expect(init?.credentials).toBe('include');
+    expect(init?.method).toBe('POST');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-1');
+    expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('xsrf-token');
+    expect(JSON.parse(String(init?.body))).toEqual({ plan_code: 'team' });
+    expect(result.checkout_pending).toBe(true);
+  });
+  it('opens Stripe customer portal only for current selected organization', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({
+      portal_url: 'https://billing.stripe.com/p/session/test',
+    }));
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test',
+      organizationId: 'org-2', fetchImpl: mock, getXsrfToken: () => 'xsrf-token' });
+    await client.stripePortal();
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/organizations/billing/portal');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-2');
+    expect(init?.method).toBe('POST');
+  });
+
 });
