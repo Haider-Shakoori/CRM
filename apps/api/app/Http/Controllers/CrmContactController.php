@@ -88,6 +88,15 @@ final class CrmContactController
     {
         return DB::transaction(function () use ($request, $id): JsonResponse {
             $contact = CrmContact::query()->findOrFail($id);
+            if (DB::table('crm_lead_conversions')
+                ->where('organization_id', $contact->organization_id)
+                ->where('contact_id', $id)->exists()) {
+                return response()->json(['ok' => false, 'error' => [
+                    'code' => 'conflict',
+                    'message' => 'This Contact is referenced by a Lead conversion. Preserve the conversion history.',
+                    'retryable' => false,
+                ]], 409);
+            }
             if (CrmActivity::withTrashed()->where('contact_id', $id)->exists()) {
                 return response()->json(['ok' => false, 'error' => [
                     'code' => 'conflict', 'message' => 'Unlink linked activities before deleting this contact.',
