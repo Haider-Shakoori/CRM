@@ -1,3 +1,4 @@
+import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -62,7 +63,7 @@ export default function ApiDirectory() {
     void auth.me().then((data) => {
       if (!active) return;
       setIdentity(data);
-      setOrganizationId(data.organizations[0]?.id ?? '');
+      setOrganizationId(preferredLiveOrganization(data));
     }).catch((cause: unknown) => {
       if (!active) return;
       if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
@@ -194,7 +195,7 @@ export default function ApiDirectory() {
                 <select aria-label="Organization" disabled={busy} value={organizationId}
                   className="block w-full rounded border p-2"
                   onChange={(event) => {
-                    setOrganizationId(event.target.value); setPage(1); setSearch(''); setSearchInput('');
+                    setOrganizationId(event.target.value); storeLiveOrganization(event.target.value); setPage(1); setSearch(''); setSearchInput('');
                     setDeleteId(null); closeForm(); setError(''); setNotice('');
                   }}>
                   {identity.organizations.map((org) => <option key={org.id} value={org.id}>{org.name} ({org.role})</option>)}
