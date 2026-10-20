@@ -204,6 +204,12 @@ final class StripeBilling
                 'updated_at' => now(),
             ]);
         }
+        if (!$previous && !in_array($status, ['active', 'trialing'], true)) {
+            // A failed first checkout may not downgrade an existing free plan.
+            // Retain the link for support/portal recovery and wait for a valid
+            // subscription activation before modifying entitlements.
+            return 'subscription_pending_no_entitlements';
+        }
         DB::table('crm_tenant_subscriptions')->where('id', $sub->id)->update([
             'plan_id' => $planId, 'status' => $status, 'period_ends_at' => $endDate,
             'cancel_at_period_end' => (bool) ($object['cancel_at_period_end'] ?? false),
