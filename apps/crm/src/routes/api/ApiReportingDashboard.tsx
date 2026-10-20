@@ -2,13 +2,14 @@ import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ApiError, createLaravelClient,
-  type ApiIdentity, type ApiOverviewReport, type ApiPipelineReport,
+  type ApiIdentity, type ApiOverviewReport, type ApiPipelineReport, type ApiForecastReport,
 } from '../../app/laravelClient';
 
 type ReportState = {
   key: string;
   overview: ApiOverviewReport;
   pipeline: ApiPipelineReport;
+  forecast: ApiForecastReport;
 };
 const formatCount = (value: number) => value.toLocaleString();
 const errorMessage = (cause: unknown) =>
@@ -31,6 +32,10 @@ export default function ApiReportingDashboard() {
   const [sessionError, setSessionError] = React.useState('');
   const [organizationId, setOrganizationId] = React.useState('');
   const [pipelineId, setPipelineId] = React.useState('');
+  const [closeFrom, setCloseFrom] = React.useState('');
+  const [closeTo, setCloseTo] = React.useState('');
+  const [probabilityDraft, setProbabilityDraft] = React.useState<Record<string, string>>({});
+  const [forecastError, setForecastError] = React.useState('');
   const [revision, setRevision] = React.useState(0);
   const [result, setResult] = React.useState<ReportState | null>(null);
   const [error, setError] = React.useState('');
@@ -38,10 +43,11 @@ export default function ApiReportingDashboard() {
   const client = React.useMemo(() =>
     baseUrl ? createLaravelClient({ baseUrl, organizationId }) : null,
     [baseUrl, organizationId]);
-  const key = JSON.stringify([organizationId, pipelineId, revision]);
+  const key = JSON.stringify([organizationId, pipelineId, closeFrom, closeTo, revision]);
   const visible = result?.key === key ? result : null;
   const overview = visible?.overview;
   const pipelineReport = visible?.pipeline;
+  const forecast = visible?.forecast;
 
   React.useEffect(() => {
     if (!auth) return;
@@ -62,10 +68,12 @@ export default function ApiReportingDashboard() {
   React.useEffect(() => {
     if (!client || !organizationId || !identity?.user.email_verified) return;
     let active = true;
-    void Promise.all([client.overviewReport(), client.pipelineReport(pipelineId || undefined)])
-      .then(([nextOverview, nextPipeline]) => {
+    void Promise.all([client.overviewReport(), client.pipelineReport(pipelineId || undefined),
+      client.forecastReport({ pipeline_id: pipelineId || undefined,
+        close_from: closeFrom || undefined, close_to: closeTo || undefined })])
+      .then(([nextOverview, nextPipeline, nextForecast]) => {
         if (!active) return;
-        setResult({ key, overview: nextOverview, pipeline: nextPipeline });
+        setResult({ key, overview: nextOverview, pipeline: nextPipeline, forecast: nextForecast });
         setError('');
       }).catch((cause: unknown) => {
         if (!active) return;
@@ -73,7 +81,7 @@ export default function ApiReportingDashboard() {
         else setError(errorMessage(cause));
       });
     return () => { active = false; };
-  }, [client, organizationId, identity?.user.email_verified, pipelineId, revision, key, navigate]);
+  }, [client, organizationId, identity?.user.email_verified, pipelineId, closeFrom, closeTo, revision, key, navigate]);
 
   const signOut = async () => {
     if (!auth || busy) return;
@@ -81,6 +89,23 @@ export default function ApiReportingDashboard() {
     try { await auth.logout(); navigate('/api-sign-in', { replace: true }); }
     catch (cause) { setError(errorMessage(cause)); }
     finally { setBusy(false); }
+  };
+  const canWrite = identity?.organizations.find((org) => org.id === organizationId)?.role !== 'viewer';
+  const saveProbability = async (pipeline: string, stage: string, current: number) => {
+    if (!client || !canWrite || busy) return;
+    const parsed = Number(probabilityDraft[stage] ?? current);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+      setForecastError('Stage probabilities must be whole percentages from 0 to 100.');
+      return;
+    }
+    setBusy(true); setForecastError('');
+    try {
+      await client.updateStageProbability(pipeline, stage, parsed);
+      setRevision((rev) => rev + 1);
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
+      else setForecastError(errorMessage(cause));
+    } finally { setBusy(false); }
   };
   // The report endpoint never sums across currencies; no currency conversion is implied.
   const reportPipelines = pipelineReport?.pipelines ?? [];
@@ -116,7 +141,8 @@ export default function ApiReportingDashboard() {
                   <select aria-label="Organization" disabled={busy} className="block w-full rounded border p-2"
                     value={organizationId} onChange={(event) => {
                       setOrganizationId(event.target.value);
-                      setPipelineId(''); setError(''); setResult(null);
+                      setPipelineId(''); setCloseFrom(''); setCloseTo(''); setProbabilityDraft({});
+                      setError(''); setForecastError(''); setResult(null);
                     }}>
                     {identity.organizations.map((org) =>
                       <option value={org.id} key={org.id}>{org.name} ({org.role})</option>)}
