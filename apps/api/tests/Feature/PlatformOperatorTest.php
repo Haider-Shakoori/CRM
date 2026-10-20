@@ -139,8 +139,13 @@ final class PlatformOperatorTest extends TestCase
             'email' => $verified->email, 'role' => 'operator',
         ]);
         $this->assertSame(0, $result, Artisan::output());
+        $grantId = DB::table('crm_platform_operators')->where('user_id', $verified->id)->value('id');
+        $this->assertSame(0, Artisan::call('crm:platform:grant', [
+            'email' => strtoupper($verified->email), 'role' => 'viewer',
+        ]));
+        $this->assertSame($grantId, DB::table('crm_platform_operators')->where('user_id', $verified->id)->value('id'));
         $this->actingAs($verified);
-        $this->getJson('/api/v1/platform/me')->assertOk();
+        $this->getJson('/api/v1/platform/me')->assertOk()->assertJsonPath('data.role', 'viewer');
         $this->assertSame(0, Artisan::call('crm:platform:revoke', [
             'email' => $verified->email,
         ]));
