@@ -57,8 +57,7 @@ export default function LeadConversionForm({ client, lead, onConverted, onCancel
     return () => { active = false; };
   }, [client, lead.id]);
 
-  const searchAccounts = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const searchAccounts = async () => {
     setSearching(true); setError('');
     try {
       const result = await client.listAccounts({ q: accountQuery.trim() || undefined, pageSize: 25 });
@@ -155,7 +154,7 @@ export default function LeadConversionForm({ client, lead, onConverted, onCancel
                 onChange={(event) => setAccountQuery(event.target.value)} placeholder="Account name" />
             </label>
             <button type="button" className="rounded border px-3 py-2" disabled={searching || busy}
-              onClick={() => { void searchAccounts({ preventDefault: () => {} } as React.FormEvent); }}>Search</button>
+              onClick={() => { void searchAccounts(); }}>Search</button>
           </div>
           <label className="block text-sm">Account
             <select required className="mt-1 block w-full rounded border p-2" value={accountId}
