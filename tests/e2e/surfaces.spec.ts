@@ -78,3 +78,18 @@ test('demo Contacts and Accounts link to their live Laravel directories', async 
   }
   expect(errors).toEqual([]);
 });
+
+
+test('demo Deals links into the real authenticated pipeline board without backend configuration', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('http://127.0.0.1:5173/app/deals');
+  const link = page.getByRole('link', { name: 'Live Deals (Laravel)' }).first();
+  await expect(link).toBeVisible();
+  await link.click();
+  await expect(page).toHaveURL(/\/crm\/deals$/);
+  await expect(page.getByRole('heading', { name: 'Sales Pipelines & Deals' })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('VITE_CRM_API_URL');
+  await expect(page.getByRole('link', { name: 'Demo Deals' })).toHaveAttribute('href', '/app/deals');
+  expect(errors).toEqual([]);
+});
