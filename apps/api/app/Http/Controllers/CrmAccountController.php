@@ -8,6 +8,7 @@ use App\Models\CrmAccount;
 use App\Models\CrmContact;
 use App\Models\CrmDeal;
 use App\Support\AuditTrail;
+use App\Support\SubscriptionEntitlements;
 use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,7 @@ final class CrmAccountController
     {
         $input = $request->validate($this->rules(false));
         $account = DB::transaction(function () use ($input, $request, $context): CrmAccount {
+            SubscriptionEntitlements::guardCreate($context->tenantId, 'accounts');
             $account = new CrmAccount();
             $account->forceFill(array_merge($input, [
                 'organization_id' => $context->organizationId, 'version' => 1,

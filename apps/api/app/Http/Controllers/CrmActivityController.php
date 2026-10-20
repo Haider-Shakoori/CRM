@@ -10,6 +10,7 @@ use App\Models\CrmDeal;
 use App\Models\Lead;
 use App\Models\OrganizationMembership;
 use App\Support\AuditTrail;
+use App\Support\SubscriptionEntitlements;
 use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -88,6 +89,7 @@ final class CrmActivityController
         $data = $request->validate($this->rules(false));
         $this->validateLinks($data, $context);
         $activity = DB::transaction(function () use ($request, $context, $data): CrmActivity {
+            SubscriptionEntitlements::guardCreate($context->tenantId, 'activities');
             $status = $data['status'] ?? 'open';
             $activity = CrmActivity::forceCreate(array_merge($data, [
                 'organization_id' => $context->organizationId,

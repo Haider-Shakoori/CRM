@@ -26,6 +26,31 @@ export interface ApiIdentity {
 export const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted'] as const;
 export type ApiLeadStatus = (typeof LEAD_STATUSES)[number];
 
+
+export type CrmQuotaResource = 'seats' | 'leads' | 'contacts' | 'accounts' | 'deals' | 'activities';
+export interface ApiSubscriptionSnapshot {
+  subscription: {
+    id: string | null;
+    plan: string;
+    plan_name: string;
+    status: string;
+    version: number;
+    period_ends_at: string | null;
+    cancel_at_period_end: boolean;
+    limits: Record<CrmQuotaResource, number | null>;
+  };
+  usage: Record<CrmQuotaResource, number>;
+  write_enabled: boolean;
+  billing_connected: boolean;
+  manage_message: string;
+}
+export interface ApiSubscriptionPlan {
+  code: string;
+  name: string;
+  limits: Record<CrmQuotaResource, number | null>;
+  checkout_available: boolean;
+}
+
 export interface ApiLead {
   id: string;
   organization_id: string;
@@ -376,6 +401,8 @@ export function createLaravelClient(options: ApiOptions) {
         { method: 'POST', body: JSON.stringify({ stage_id: stageId, expected_version: expectedVersion }) }, true),
     archiveDeal: (id: string) => request<{ id: string }>('/api/v1/deals/' + encodeURIComponent(id),
       { method: 'DELETE' }, true),
+    subscriptionPlans: () => request<ApiSubscriptionPlan[]>('/api/v1/subscription/plans'),
+    subscriptionUsage: () => request<ApiSubscriptionSnapshot>('/api/v1/organizations/subscription', {}, true),
     overviewReport: () => request<ApiOverviewReport>('/api/v1/reports/overview', {}, true),
     forecastReport: (filters: { pipeline_id?: string; close_from?: string; close_to?: string } = {}) => {
       const search = new URLSearchParams();

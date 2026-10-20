@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\SubscriptionEntitlements;
+
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,6 +19,7 @@ final class RequireOrganizationWriteRole
             ]], 403);
         }
 
+        SubscriptionEntitlements::requireWritable($request->attributes->get('crm_organization')->tenant_id);
         return $next($request);
     }
 }

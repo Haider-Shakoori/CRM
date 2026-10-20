@@ -7,6 +7,7 @@ use App\Models\OrganizationMembership;
 use App\Models\User;
 use App\Models\Tenant;
 use App\Support\SeatUsage;
+use App\Support\SubscriptionEntitlements;
 use App\Support\AuditTrail;
 use App\Notifications\OrganizationInvitationNotification;
 use App\Support\OrganizationContext;
@@ -29,6 +30,7 @@ final class InvitationController
             ]], 403);
         }
 
+        SubscriptionEntitlements::requireWritable($context->tenantId);
         $data = $request->validate([
             'email' => ['required', 'email:rfc', 'max:254'],
             'role' => ['required', Rule::in(['admin', 'member', 'viewer'])],
@@ -98,9 +100,12 @@ final class InvitationController
             // A tenant-level row lock serializes concurrent accepts and prevents seat over-allocation.
             $tenant = Tenant::query()->whereKey($invitation->organization->tenant_id)
                 ->lockForUpdate()->firstOrFail();
-            if ($tenant->seat_limit !== null &&
-                !SeatUsage::hasSeat($tenant->id, $user->id) &&
-                SeatUsage::activeSeatCount($tenant->id) >= $tenant->seat_limit) {
+            if (!SubscriptionEntitlements::canWrite(SubscriptionEntitlements::snapshot($tenant->id))) {
+                return 'subscription_inactive';
+            }
+            $limit = SubscriptionEntitlements::effectiveSeatLimit($tenant->id);
+            if ($limit !== null && !SeatUsage::hasSeat($tenant->id, $user->id) &&
+                SeatUsage::activeSeatCount($tenant->id) >= $limit) {
                 return 'seat_limit';
             }
 
@@ -114,6 +119,11 @@ final class InvitationController
             return $membership;
         });
 
+        if ($result === 'subscription_inactive') {
+            return response()->json(['ok' => false, 'error' => [
+                'code' => 'subscription_inactive', 'message' => 'Subscription inactive. Invitation cannot be accepted.', 'retryable' => false,
+            ]], 409);
+        }
         if ($result === 'seat_limit') {
             return response()->json(['ok' => false, 'error' => [
                 'code' => 'entitlement_missing', 'message' => 'No user seats are available.', 'retryable' => false,

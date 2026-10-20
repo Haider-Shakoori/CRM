@@ -10,6 +10,7 @@ use App\Models\CrmPipeline;
 use App\Models\CrmPipelineStage;
 use App\Models\Lead;
 use App\Support\AuditTrail;
+use App\Support\SubscriptionEntitlements;
 use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -103,6 +104,7 @@ final class CrmLeadConversionController
                 if (CrmAccount::query()->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($name)])->exists()) {
                     throw ValidationException::withMessages(['account_name' => 'An Account with this name exists. Select the existing Account instead.']);
                 }
+                SubscriptionEntitlements::guardCreate($context->tenantId, 'accounts');
                 $account = CrmAccount::forceCreate([
                     'organization_id' => $context->organizationId, 'name' => $name, 'version' => 1,
                 ]);
@@ -119,6 +121,7 @@ final class CrmLeadConversionController
                 }
             }
 
+            SubscriptionEntitlements::guardCreate($context->tenantId, 'contacts');
             $contact = CrmContact::forceCreate([
                 'organization_id' => $context->organizationId, 'account_id' => $account->id,
                 'first_name' => trim($data['first_name']), 'last_name' => trim($data['last_name']),
@@ -127,6 +130,7 @@ final class CrmLeadConversionController
 
             $dealId = null;
             if ($dealFields !== null) {
+                SubscriptionEntitlements::guardCreate($context->tenantId, 'deals');
                 $deal = CrmDeal::forceCreate([
                     'organization_id' => $context->organizationId,
                     'account_id' => $account->id, 'pipeline_id' => $dealFields['pipeline_id'],

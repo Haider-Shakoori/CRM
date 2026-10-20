@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\OrganizationContext;
 use App\Support\SeatUsage;
+use App\Support\SubscriptionEntitlements;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ final class AuditController
     public function usage(Request $request, OrganizationContext $context): JsonResponse
     {
         if (!$this->canView($request)) return $this->forbidden();
-        $limit = DB::table('tenants')->where('id', $context->tenantId)->value('seat_limit');
+        $limit = SubscriptionEntitlements::effectiveSeatLimit($context->tenantId);
         return response()->json(['ok' => true, 'data' => [
             'seatsUsed' => SeatUsage::activeSeatCount($context->tenantId),
             'seatLimit' => $limit,
