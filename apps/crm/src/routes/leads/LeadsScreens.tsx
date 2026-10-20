@@ -383,6 +383,9 @@ export default function LeadsList() {
         breadcrumbs={[{ label: 'Home', to: '/app/home' }, { label: 'Leads' }]}
         actions={
           <>
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/crm/leads">Live Leads (Laravel)</Link>
+            </Button>
             <Button variant="primary" size="sm" leadingIcon={<UserPlus className="size-3.5" />} asChild>
               <Link to="/app/leads/new">New lead</Link>
             </Button>
