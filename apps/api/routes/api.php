@@ -11,11 +11,14 @@ use App\Http\Controllers\CrmReportingController;
 use App\Http\Controllers\CrmForecastController;
 use App\Http\Controllers\CrmLeadConversionController;
 use App\Http\Controllers\CrmSubscriptionController;
+use App\Http\Controllers\CrmStripeBillingController;
 use App\Http\Controllers\CrmPlatformController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\AuditController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+Route::post('/billing/stripe/webhook', [CrmStripeBillingController::class, 'webhook'])->middleware('throttle:120,1');
 
 Route::get('/health', fn () => response()->json([
     'ok' => true,
@@ -38,6 +41,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/organizations/invitations', [InvitationController::class, 'store']);
         Route::get('/organizations/usage', [AuditController::class, 'usage']);
         Route::get('/organizations/subscription', [CrmSubscriptionController::class, 'show']);
+        Route::post('/organizations/billing/checkout', [CrmStripeBillingController::class, 'checkout'])->middleware('throttle:10,1');
+        Route::post('/organizations/billing/portal', [CrmStripeBillingController::class, 'portal'])->middleware('throttle:10,1');
         Route::get('/organizations/audit', [AuditController::class, 'index']);
         Route::get('/organizations/current', function (Request $request) {
             $organization = $request->attributes->get('crm_organization');
