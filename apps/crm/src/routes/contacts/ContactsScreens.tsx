@@ -397,6 +397,9 @@ export default function ContactsList() {
         actions={
           <>
             <Button variant="secondary" size="sm" asChild>
+              <Link to="/crm/contacts">Live Contacts (Laravel)</Link>
+            </Button>
+            <Button variant="secondary" size="sm" asChild>
               <Link to="/app/contacts/duplicates">
                 <GitMerge className="size-3.5" aria-hidden />
                 Review duplicates

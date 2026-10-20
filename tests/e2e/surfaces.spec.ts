@@ -61,3 +61,20 @@ test('demo Leads provides an explicit entry to the independent live Leads route'
   await expect(page.getByRole('heading', { name: 'Leads', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Demo Leads' })).toHaveAttribute('href', '/app/leads');
 });
+
+test('demo Contacts and Accounts link to their live Laravel directories', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  for (const [demo, label, live, heading] of [
+    ['/app/contacts', 'Live Contacts (Laravel)', '/crm/contacts', 'Contacts'],
+    ['/app/accounts', 'Live Accounts (Laravel)', '/crm/accounts', 'Accounts'],
+  ] as const) {
+    await page.goto('http://127.0.0.1:5173' + demo);
+    const link = page.getByRole('link', { name: label });
+    await expect(link).toBeVisible();
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(live.replace(/\//g, '\\/') + '$'));
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+  }
+  expect(errors).toEqual([]);
+});

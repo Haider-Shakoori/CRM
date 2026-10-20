@@ -161,6 +161,8 @@ export default function ApiWorkspace() {
           <p className="text-sm text-muted">Live Laravel/PostgreSQL data. Only this Leads view is connected; other CRM modules remain a demo.</p>
         </div>
         <nav className="flex gap-4">
+          <Link className="underline" to="/crm/accounts">Live Accounts</Link>
+          <Link className="underline" to="/crm/contacts">Live Contacts</Link>
           <Link className="underline" to="/app/leads">Demo Leads</Link>
           <button type="button" className="underline disabled:opacity-50" disabled={busy} onClick={() => { void logout(); }}>Sign out</button>
         </nav>
