@@ -1,3 +1,4 @@
+import { isLiveCrmMode } from '../../app/LiveRouteBridge';
 import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -98,7 +99,7 @@ export default function ApiSubscriptionPage() {
       <Link className="underline" to="/crm/dashboard">Live Dashboard</Link>
       <Link className="underline" to="/crm/leads">Leads</Link>
       <Link className="underline" to="/crm/my-work">My Work</Link>
-      <Link className="underline" to="/app/home">Demo Home</Link>
+      {!isLiveCrmMode && <Link className="underline" to="/app/home">Demo Home</Link>}
     </nav>
     <header className="space-y-2">
       <p className="text-xs uppercase tracking-wider text-muted">CRM / Organization / Entitlements</p>
