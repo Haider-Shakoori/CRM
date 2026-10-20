@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ThemeProvider, Toaster } from '@crm/ui';
 import { PlatformLanding } from './PlatformLanding';
+import { PlatformConsole } from './PlatformConsole';
 import './styles.css';
 
 const rootElement = document.getElementById('root');
@@ -23,7 +24,7 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <ThemeProvider persist>
-      <PlatformLanding />
+      {import.meta.env.VITE_CRM_API_URL ? <PlatformConsole /> : <PlatformLanding />}
       <Toaster />
     </ThemeProvider>
   </StrictMode>,
