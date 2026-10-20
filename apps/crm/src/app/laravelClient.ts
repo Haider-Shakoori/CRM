@@ -172,6 +172,31 @@ export type ActivityInput = {
   deal_id?: string | null;
 };
 
+
+export interface ApiOverviewReport {
+  as_of: string;
+  timezone: string;
+  totals: {
+    leads: number; contacts: number; accounts: number; deals: number; pipelines: number;
+    open_activities: number; open_tasks: number; overdue_tasks: number;
+    tasks_due_today: number; meetings_next_7_days: number;
+  };
+  leads_by_status: Record<string, number>;
+  activities_by_kind_status: Array<{ kind: string; status: string; count: number }>;
+}
+export interface ApiPipelineReport {
+  pipelines: Array<{
+    id: string;
+    name: string;
+    stages: Array<{ id: string; name: string; kind: ApiStageKind; position: number }>;
+  }>;
+  stage_currency_totals: Array<{
+    pipeline_id: string; stage_id: string;
+    kind: ApiStageKind; currency: string; deal_count: number; deal_value: string;
+  }>;
+  definitions: { deals: string; value: string; won: string };
+}
+
 export interface ApiPage<T> {
   items: T[];
   meta: { page: number; pageSize: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
@@ -295,6 +320,11 @@ export function createLaravelClient(options: ApiOptions) {
         { method: 'POST', body: JSON.stringify({ stage_id: stageId, expected_version: expectedVersion }) }, true),
     archiveDeal: (id: string) => request<{ id: string }>('/api/v1/deals/' + encodeURIComponent(id),
       { method: 'DELETE' }, true),
+    overviewReport: () => request<ApiOverviewReport>('/api/v1/reports/overview', {}, true),
+    pipelineReport: (pipelineId?: string) => {
+      const search = pipelineId ? '?pipeline_id=' + encodeURIComponent(pipelineId) : '';
+      return request<ApiPipelineReport>('/api/v1/reports/pipelines' + search, {}, true);
+    },
     listAssignees: () => request<ApiAssignee[]>('/api/v1/activities/assignees', {}, true),
     listActivities: (params: { page?: number; pageSize?: number; q?: string; kind?: ApiActivityKind;
       status?: ApiActivityStatus; assigned_to?: string; mine?: boolean; due_before?: string } = {}) => {
