@@ -11,6 +11,7 @@ use App\Http\Controllers\CrmReportingController;
 use App\Http\Controllers\CrmForecastController;
 use App\Http\Controllers\CrmLeadConversionController;
 use App\Http\Controllers\CrmSubscriptionController;
+use App\Http\Controllers\CrmPlatformController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\AuditController;
 use Illuminate\Http\Request;
@@ -24,6 +25,14 @@ Route::get('/health', fn () => response()->json([
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/subscription/plans', [CrmSubscriptionController::class, 'catalog']);
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::middleware(['verified', 'platform.operator'])->prefix('platform')->group(function () {
+        Route::get('/me', [CrmPlatformController::class, 'me']);
+        Route::get('/plans', [CrmPlatformController::class, 'plans']);
+        Route::get('/tenants', [CrmPlatformController::class, 'tenants']);
+        Route::get('/tenants/{id}', [CrmPlatformController::class, 'tenant'])->whereUuid('id');
+        Route::patch('/tenants/{id}/subscription', [CrmPlatformController::class, 'updateSubscription'])
+            ->whereUuid('id')->middleware('platform.operator:write');
+    });
     Route::post('/invitations/accept', [InvitationController::class, 'accept'])->middleware('verified');
     Route::middleware(['verified', 'organization'])->group(function () {
         Route::post('/organizations/invitations', [InvitationController::class, 'store']);
