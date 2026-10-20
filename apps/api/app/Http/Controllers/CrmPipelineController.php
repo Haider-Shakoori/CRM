@@ -40,13 +40,14 @@ final class CrmPipelineController
                 'name' => $input['name'], 'version' => 1,
             ]);
             foreach ([
-                ['Prospecting', 'open'], ['Qualification', 'open'],
-                ['Proposal', 'open'], ['Won', 'won'], ['Lost', 'lost'],
-            ] as $position => [$name, $kind]) {
+                ['Prospecting', 'open', 10], ['Qualification', 'open', 25],
+                ['Proposal', 'open', 60], ['Won', 'won', 100], ['Lost', 'lost', 0],
+            ] as $position => [$name, $kind, $probability]) {
                 CrmPipelineStage::forceCreate([
                     'organization_id' => $context->organizationId,
                     'pipeline_id' => $pipeline->id,
                     'name' => $name, 'kind' => $kind, 'position' => $position + 1,
+                    'probability' => $probability,
                 ]);
             }
             AuditTrail::current($request, 'pipeline.created', 'pipeline', $pipeline->id);
@@ -61,6 +62,7 @@ final class CrmPipelineController
         $input = $request->validate([
             'name' => ['required', 'string', 'min:1', 'max:120'],
             'kind' => ['required', Rule::in(['open', 'won', 'lost'])],
+            'probability' => ['sometimes', 'integer', 'between:0,100'],
             'organization_id' => ['prohibited'], 'pipeline_id' => ['prohibited'],
             'id' => ['prohibited'], 'position' => ['prohibited'],
         ]);
@@ -72,6 +74,7 @@ final class CrmPipelineController
                 'organization_id' => $context->organizationId,
                 'pipeline_id' => $pipeline->id, 'position' => $next,
                 'name' => $input['name'], 'kind' => $input['kind'],
+                'probability' => $input['kind'] === 'won' ? 100 : ($input['kind'] === 'lost' ? 0 : ($input['probability'] ?? 25)),
             ]);
             AuditTrail::current($request, 'pipeline.stage_created', 'pipeline_stage', $stage->id,
                 ['pipeline_id' => $pipeline->id]);
@@ -79,4 +82,27 @@ final class CrmPipelineController
         });
         return response()->json(['ok' => true, 'data' => $stage], 201);
     }
+    public function updateStageProbability(Request $request, string $id, string $stageId): JsonResponse
+    {
+        $input = $request->validate([
+            'probability' => ['required', 'integer', 'between:0,100'],
+            'organization_id' => ['prohibited'], 'kind' => ['prohibited'],
+        ]);
+        return DB::transaction(function () use ($request, $id, $stageId, $input): JsonResponse {
+            CrmPipeline::query()->findOrFail($id);
+            $stage = CrmPipelineStage::query()->where('pipeline_id', $id)->lockForUpdate()->findOrFail($stageId);
+            if ($stage->kind !== 'open') {
+                return response()->json(['ok' => false, 'error' => [
+                    'code' => 'validation_failed', 'message' => 'Won and Lost stage probabilities are fixed.',
+                    'retryable' => false,
+                ]], 422);
+            }
+            $stage->forceFill(['probability' => $input['probability']])->save();
+            AuditTrail::current($request, 'pipeline.stage_probability_updated', 'pipeline_stage', $stage->id, [
+                'pipeline_id' => $id, 'probability' => $stage->probability,
+            ]);
+            return response()->json(['ok' => true, 'data' => $stage->refresh()]);
+        });
+    }
+
 }

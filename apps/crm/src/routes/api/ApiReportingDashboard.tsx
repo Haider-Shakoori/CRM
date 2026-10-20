@@ -2,13 +2,14 @@ import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ApiError, createLaravelClient,
-  type ApiIdentity, type ApiOverviewReport, type ApiPipelineReport,
+  type ApiIdentity, type ApiOverviewReport, type ApiPipelineReport, type ApiForecastReport,
 } from '../../app/laravelClient';
 
 type ReportState = {
   key: string;
   overview: ApiOverviewReport;
   pipeline: ApiPipelineReport;
+  forecast: ApiForecastReport;
 };
 const formatCount = (value: number) => value.toLocaleString();
 const errorMessage = (cause: unknown) =>
@@ -31,6 +32,10 @@ export default function ApiReportingDashboard() {
   const [sessionError, setSessionError] = React.useState('');
   const [organizationId, setOrganizationId] = React.useState('');
   const [pipelineId, setPipelineId] = React.useState('');
+  const [closeFrom, setCloseFrom] = React.useState('');
+  const [closeTo, setCloseTo] = React.useState('');
+  const [probabilityDraft, setProbabilityDraft] = React.useState<Record<string, string>>({});
+  const [forecastError, setForecastError] = React.useState('');
   const [revision, setRevision] = React.useState(0);
   const [result, setResult] = React.useState<ReportState | null>(null);
   const [error, setError] = React.useState('');
@@ -38,10 +43,11 @@ export default function ApiReportingDashboard() {
   const client = React.useMemo(() =>
     baseUrl ? createLaravelClient({ baseUrl, organizationId }) : null,
     [baseUrl, organizationId]);
-  const key = JSON.stringify([organizationId, pipelineId, revision]);
+  const key = JSON.stringify([organizationId, pipelineId, closeFrom, closeTo, revision]);
   const visible = result?.key === key ? result : null;
   const overview = visible?.overview;
   const pipelineReport = visible?.pipeline;
+  const forecast = visible?.forecast;
 
   React.useEffect(() => {
     if (!auth) return;
@@ -62,10 +68,12 @@ export default function ApiReportingDashboard() {
   React.useEffect(() => {
     if (!client || !organizationId || !identity?.user.email_verified) return;
     let active = true;
-    void Promise.all([client.overviewReport(), client.pipelineReport(pipelineId || undefined)])
-      .then(([nextOverview, nextPipeline]) => {
+    void Promise.all([client.overviewReport(), client.pipelineReport(pipelineId || undefined),
+      client.forecastReport({ pipeline_id: pipelineId || undefined,
+        close_from: closeFrom || undefined, close_to: closeTo || undefined })])
+      .then(([nextOverview, nextPipeline, nextForecast]) => {
         if (!active) return;
-        setResult({ key, overview: nextOverview, pipeline: nextPipeline });
+        setResult({ key, overview: nextOverview, pipeline: nextPipeline, forecast: nextForecast });
         setError('');
       }).catch((cause: unknown) => {
         if (!active) return;
@@ -73,7 +81,7 @@ export default function ApiReportingDashboard() {
         else setError(errorMessage(cause));
       });
     return () => { active = false; };
-  }, [client, organizationId, identity?.user.email_verified, pipelineId, revision, key, navigate]);
+  }, [client, organizationId, identity?.user.email_verified, pipelineId, closeFrom, closeTo, revision, key, navigate]);
 
   const signOut = async () => {
     if (!auth || busy) return;
@@ -81,6 +89,23 @@ export default function ApiReportingDashboard() {
     try { await auth.logout(); navigate('/api-sign-in', { replace: true }); }
     catch (cause) { setError(errorMessage(cause)); }
     finally { setBusy(false); }
+  };
+  const canWrite = identity?.organizations.find((org) => org.id === organizationId)?.role !== 'viewer';
+  const saveProbability = async (pipeline: string, stage: string, current: number) => {
+    if (!client || !canWrite || busy) return;
+    const parsed = Number(probabilityDraft[stage] ?? current);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+      setForecastError('Stage probabilities must be whole percentages from 0 to 100.');
+      return;
+    }
+    setBusy(true); setForecastError('');
+    try {
+      await client.updateStageProbability(pipeline, stage, parsed);
+      setRevision((rev) => rev + 1);
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
+      else setForecastError(errorMessage(cause));
+    } finally { setBusy(false); }
   };
   // The report endpoint never sums across currencies; no currency conversion is implied.
   const reportPipelines = pipelineReport?.pipelines ?? [];
@@ -116,7 +141,8 @@ export default function ApiReportingDashboard() {
                   <select aria-label="Organization" disabled={busy} className="block w-full rounded border p-2"
                     value={organizationId} onChange={(event) => {
                       setOrganizationId(event.target.value);
-                      setPipelineId(''); setError(''); setResult(null);
+                      setPipelineId(''); setCloseFrom(''); setCloseTo(''); setProbabilityDraft({});
+                      setError(''); setForecastError(''); setResult(null);
                     }}>
                     {identity.organizations.map((org) =>
                       <option value={org.id} key={org.id}>{org.name} ({org.role})</option>)}
@@ -207,6 +233,53 @@ export default function ApiReportingDashboard() {
                             </section>;
                           })}</div>}
                         <p className="text-xs text-muted">{pipelineReport?.definitions.won} {pipelineReport?.definitions.deals}</p>
+                      </section>
+                      <section className="space-y-4 rounded-xl border p-5" aria-label="Deal forecast">
+                        <h2 className="text-lg font-semibold">Stage-weighted deal outlook</h2>
+                        <p className="text-sm text-muted">Open deals multiplied by stage probability assumptions, not statistical predictions or recognized revenue. Currencies are never combined.</p>
+                        <div className="flex flex-wrap gap-3">
+                          <label className="text-sm">Expected close from
+                            <input type="date" className="block rounded border p-2" value={closeFrom}
+                              onChange={(event) => setCloseFrom(event.target.value)} />
+                          </label>
+                          <label className="text-sm">Expected close through
+                            <input type="date" className="block rounded border p-2" value={closeTo}
+                              onChange={(event) => setCloseTo(event.target.value)} />
+                          </label>
+                        </div>
+                        {forecast && <div className="overflow-x-auto rounded border">
+                          <table className="w-full text-left text-sm">
+                            <thead><tr><th className="p-3">Currency</th><th className="p-3">Deals</th>
+                              <th className="p-3">Open amount</th><th className="p-3">Weighted open outlook</th>
+                              <th className="p-3">Won opportunities</th><th className="p-3">Lost opportunities</th>
+                            </tr></thead>
+                            <tbody>{forecast.currencies.map((row) =>
+                              <tr className="border-t" key={row.currency}>
+                                <td className="p-3 font-semibold">{row.currency}</td>
+                                <td className="p-3">{row.deal_count}</td>
+                                <td className="p-3 tabular-nums">{row.open_value}</td>
+                                <td className="p-3 tabular-nums">{row.weighted_open_value}</td>
+                                <td className="p-3 tabular-nums">{row.won_value}</td>
+                                <td className="p-3 tabular-nums">{row.lost_value}</td>
+                              </tr>)}</tbody>
+                          </table>
+                          {forecast.currencies.length === 0 && <p className="p-3 text-sm">No deals in the selected outlook window.</p>}
+                        </div>}
+                        <h3 className="font-semibold">Stage probability assumptions</h3>
+                        {forecastError && <p role="alert" className="text-red-600">{forecastError}</p>}
+                        <div className="grid gap-3 md:grid-cols-2">{displayPipelines.flatMap((pipeline) =>
+                          pipeline.stages.map((stage) => <label className="flex items-center justify-between gap-3 rounded border p-3 text-sm"
+                            key={stage.id}>
+                            <span>{pipeline.name} / {stage.name} ({stage.kind})</span>
+                            <input aria-label={'Probability ' + pipeline.name + ' ' + stage.name} type="number" min={0} max={100} step={1}
+                              disabled={stage.kind !== 'open' || !canWrite || busy} className="w-20 rounded border p-2"
+                              value={probabilityDraft[stage.id] ?? String(stage.probability)}
+                              onChange={(event) => setProbabilityDraft((prev) => ({ ...prev, [stage.id]: event.target.value }))}/>
+                            {stage.kind === 'open' && canWrite && <button type="button" disabled={busy}
+                              className="underline disabled:opacity-50"
+                              onClick={() => { void saveProbability(pipeline.id, stage.id, stage.probability); }}>Save</button>}
+                          </label>))}</div>
+                        <p className="text-xs text-muted">{forecast?.assumptions.confidence} · {forecast?.assumptions.basis}</p>
                       </section>
                     </>}
             </>}

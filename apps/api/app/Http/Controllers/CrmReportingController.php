@@ -100,6 +100,7 @@ final class CrmReportingController
                     'stages' => $item->stages->map(fn ($stage) => [
                         'id' => $stage->id, 'name' => $stage->name,
                         'kind' => $stage->kind, 'position' => $stage->position,
+                        'probability' => $stage->probability,
                     ])->values()->all(),
                 ])->values()->all(),
             'stage_currency_totals' => $rows->map(fn ($row) => [

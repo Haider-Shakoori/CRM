@@ -39,6 +39,41 @@ export interface ApiLead {
 }
 
 
+export interface ApiLeadConversion {
+  id: string;
+  lead_id: string;
+  account_id: string;
+  contact_id: string;
+  converted_by: string;
+  created_at: string;
+}
+export type LeadConversionInput = {
+  expected_version: number;
+  first_name: string;
+  last_name: string;
+  email?: string | null;
+  account_id?: string;
+  account_name?: string;
+};
+export interface ApiForecastReport {
+  currencies: Array<{
+    currency: string;
+    deal_count: number;
+    open_value: string;
+    weighted_open_value: string;
+    won_value: string;
+    lost_value: string;
+    no_close_date: number;
+  }>;
+  assumptions: {
+    method: string;
+    confidence: string;
+    basis: string;
+    won: string;
+    date_filter: string;
+  };
+}
+
 export interface ApiAccount {
   id: string;
   organization_id: string;
@@ -79,6 +114,7 @@ export interface ApiPipelineStage {
   name: string;
   kind: ApiStageKind;
   position: number;
+  probability: number;
 }
 export interface ApiPipeline {
   id: string;
@@ -188,7 +224,7 @@ export interface ApiPipelineReport {
   pipelines: Array<{
     id: string;
     name: string;
-    stages: Array<{ id: string; name: string; kind: ApiStageKind; position: number }>;
+    stages: Array<{ id: string; name: string; kind: ApiStageKind; position: number; probability: number }>;
   }>;
   stage_currency_totals: Array<{
     pipeline_id: string; stage_id: string;
@@ -272,6 +308,10 @@ export function createLaravelClient(options: ApiOptions) {
     updateLead: (id: string, patch: { expected_version: number; name?: string; email?: string | null; notes?: string | null; status?: string }) =>
       request<ApiLead>('/api/v1/leads/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(patch) }, true),
     deleteLead: (id: string) => request<{ id: string }>('/api/v1/leads/' + encodeURIComponent(id), { method: 'DELETE' }, true),
+    convertLead: (id: string, input: LeadConversionInput) =>
+      request<ApiLeadConversion>('/api/v1/leads/' + encodeURIComponent(id) + '/convert', { method: 'POST', body: JSON.stringify(input) }, true),
+    getLeadConversion: (id: string) =>
+      request<ApiLeadConversion>('/api/v1/leads/' + encodeURIComponent(id) + '/conversion', {}, true),
     listAccounts: (params: { page?: number; pageSize?: number; q?: string } = {}) => {
       const search = new URLSearchParams();
       for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value));
@@ -321,6 +361,14 @@ export function createLaravelClient(options: ApiOptions) {
     archiveDeal: (id: string) => request<{ id: string }>('/api/v1/deals/' + encodeURIComponent(id),
       { method: 'DELETE' }, true),
     overviewReport: () => request<ApiOverviewReport>('/api/v1/reports/overview', {}, true),
+    forecastReport: (filters: { pipeline_id?: string; close_from?: string; close_to?: string } = {}) => {
+      const search = new URLSearchParams();
+      for (const [key, value] of Object.entries(filters)) if (value) search.set(key, value);
+      return request<ApiForecastReport>('/api/v1/reports/forecast' + (search.size ? '?' + search : ''), {}, true);
+    },
+    updateStageProbability: (pipelineId: string, stageId: string, probability: number) =>
+      request<ApiPipelineStage>('/api/v1/pipelines/' + encodeURIComponent(pipelineId) + '/stages/' + encodeURIComponent(stageId) + '/probability',
+        { method: 'PATCH', body: JSON.stringify({ probability }) }, true),
     pipelineReport: (pipelineId?: string) => {
       const search = pipelineId ? '?pipeline_id=' + encodeURIComponent(pipelineId) : '';
       return request<ApiPipelineReport>('/api/v1/reports/pipelines' + search, {}, true);

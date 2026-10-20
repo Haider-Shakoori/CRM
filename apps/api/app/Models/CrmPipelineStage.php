@@ -11,5 +11,5 @@ final class CrmPipelineStage extends Model
     use HasUuids, ScopedToOrganization;
 
     protected $table = 'crm_pipeline_stages';
-    protected $fillable = ['name', 'kind', 'position'];
+    protected $fillable = ['name', 'kind', 'position', 'probability'];
 }

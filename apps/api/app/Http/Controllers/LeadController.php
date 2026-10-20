@@ -54,6 +54,9 @@ final class LeadController
     public function store(Request $request, OrganizationContext $context): JsonResponse
     {
         $input = $request->validate($this->rules(false));
+        if (($input['status'] ?? null) === 'converted') {
+            return $this->conflict('Convert leads through the linked Contact/Account workflow.');
+        }
         // Force ownership from validated server context. Never copy tenant/organization from payload.
         $lead = new Lead();
         $lead->forceFill([
@@ -76,6 +79,9 @@ final class LeadController
             'expected_version' => ['required', 'integer', 'min:1'],
         ]));
         $lead = Lead::query()->findOrFail($id);
+        if (($input['status'] ?? null) === 'converted' || $lead->status === 'converted') {
+            return $this->conflict('Converted leads are protected from direct status edits.');
+        }
 
         if ($lead->version !== (int) $input['expected_version']) {
             return $this->conflict();
@@ -100,6 +106,10 @@ final class LeadController
     public function destroy(Request $request, string $id): JsonResponse
     {
         $lead = Lead::query()->findOrFail($id);
+        if (\Illuminate\Support\Facades\DB::table('crm_lead_conversions')
+            ->where('organization_id', $lead->organization_id)->where('lead_id', $id)->exists()) {
+            return $this->conflict('Converted leads cannot be deleted while conversion history is retained.');
+        }
         if (CrmActivity::withTrashed()->where('lead_id', $id)->exists()) {
             return response()->json(['ok' => false, 'error' => [
                 'code' => 'conflict', 'message' => 'Unlink linked activities before deleting this lead.',
