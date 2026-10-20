@@ -66,4 +66,18 @@ describe('Laravel browser client', () => {
     expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-2');
   });
 
+  it('passes server search, status, page and page-size parameters without changing organization ownership', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({
+      items: [], meta: { page: 3, pageSize: 25, total: 70, totalPages: 3, hasNext: false, hasPrev: true },
+    }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-3', fetchImpl: mock });
+    const data = await api.listLeads({ page: 3, pageSize: 25, q: 'Afghan & Sons', status: 'qualified' });
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/leads?page=3&pageSize=25&status=qualified&q=Afghan+%26+Sons');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-3');
+    expect(data.meta.totalPages).toBe(3);
+    expect(data.meta.hasPrev).toBe(true);
+    expect(data.meta.hasNext).toBe(false);
+  });
+
 });
