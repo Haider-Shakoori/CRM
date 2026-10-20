@@ -6,6 +6,7 @@ use App\Models\CrmActivity;
 
 use App\Models\Lead;
 use App\Support\AuditTrail;
+use App\Support\SubscriptionEntitlements;
 use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,19 +58,18 @@ final class LeadController
         if (($input['status'] ?? null) === 'converted') {
             return $this->conflict('Convert leads through the linked Contact/Account workflow.');
         }
-        // Force ownership from validated server context. Never copy tenant/organization from payload.
-        $lead = new Lead();
-        $lead->forceFill([
-            'organization_id' => $context->organizationId,
-            'name' => $input['name'],
-            'email' => $input['email'] ?? null,
-            'status' => $input['status'] ?? 'new',
-            'notes' => $input['notes'] ?? null,
-            'version' => 1,
-        ]);
-        $lead->save();
-        AuditTrail::current($request, 'lead.created', 'lead', $lead->id);
-
+        $lead = \Illuminate\Support\Facades\DB::transaction(function () use ($request, $context, $input): Lead {
+            SubscriptionEntitlements::guardCreate($context->tenantId, 'leads');
+            $record = new Lead();
+            $record->forceFill([
+                'organization_id' => $context->organizationId,
+                'name' => $input['name'], 'email' => $input['email'] ?? null,
+                'status' => $input['status'] ?? 'new',
+                'notes' => $input['notes'] ?? null, 'version' => 1,
+            ])->save();
+            AuditTrail::current($request, 'lead.created', 'lead', $record->id);
+            return $record;
+        });
         return response()->json(['ok' => true, 'data' => $lead], 201);
     }
 
