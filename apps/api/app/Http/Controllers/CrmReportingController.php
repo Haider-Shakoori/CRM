@@ -94,8 +94,7 @@ final class CrmReportingController
             ->get();
 
         return response()->json(['ok' => true, 'data' => [
-            'pipelines' => $pipelines->filter(fn ($item) => !$pipelineId || $item->id === $pipelineId)
-                ->map(fn ($item) => [
+            'pipelines' => $pipelines->map(fn ($item) => [
                     'id' => $item->id,
                     'name' => $item->name,
                     'stages' => $item->stages->map(fn ($stage) => [
