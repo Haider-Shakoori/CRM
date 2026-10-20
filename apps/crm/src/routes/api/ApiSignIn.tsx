@@ -1,3 +1,4 @@
+import { isLiveCrmMode } from '../../app/LiveRouteBridge';
 import * as React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, createLaravelClient } from '../../app/laravelClient';
@@ -22,7 +23,7 @@ export default function ApiSignIn() {
     try {
       const client = createLaravelClient({ baseUrl: apiBase });
       await client.login(email, password);
-      navigate('/crm/leads', { replace: true });
+      navigate(isLiveCrmMode ? '/crm/dashboard' : '/crm/leads', { replace: true });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Unable to reach the CRM API.');
     } finally {
@@ -34,7 +35,7 @@ export default function ApiSignIn() {
       <div className="w-full max-w-md space-y-6 rounded-xl border border-default bg-surface p-8 shadow-lg">
         <header className="space-y-2">
           <h1 className="text-2xl font-semibold">CRM API sign in</h1>
-          <p className="text-sm text-muted">Sign in securely using your organization account. This is the new Laravel-backed workspace preview.</p>
+          <p className="text-sm text-muted">Sign in securely using your organization account. This is the secure Laravel-backed CRM workspace.</p>
         </header>
         {location.state?.passwordReset && <p role="status" className="rounded border p-3 text-sm">Password changed. Please sign in.</p>}
         {!apiBase ? (
@@ -51,7 +52,7 @@ export default function ApiSignIn() {
             <button className="w-full rounded bg-blue-700 p-3 font-medium text-white disabled:opacity-50" type="submit" disabled={pending}>{pending ? 'Signing in…' : 'Sign in'}</button>
           </form>
         )}
-        <div className="flex flex-wrap justify-between gap-3 text-sm"><Link className="underline" to="/forgot-password">Forgot password?</Link><Link className="underline" to="/app/home">Demo CRM</Link></div>
+        <div className="flex flex-wrap justify-between gap-3 text-sm"><Link className="underline" to="/forgot-password">Forgot password?</Link>{!isLiveCrmMode && <Link className="underline" to="/app/home">Demo CRM</Link>}</div>
       </div>
     </main>
   );
