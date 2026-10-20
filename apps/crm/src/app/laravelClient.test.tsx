@@ -258,4 +258,41 @@ describe('Laravel browser client', () => {
     expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-1');
   });
 
+  it('checks potential duplicates only through the scoped Lead matches endpoint', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(success({
+      contact_email_matches: [], lead_email_matches: [], match_rule: 'email',
+    }));
+    const withoutOrg = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: fetcher });
+    await expect(withoutOrg.leadMatches('lead-1')).rejects.toBeInstanceOf(ApiError);
+    expect(fetcher).not.toHaveBeenCalled();
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-2', fetchImpl: fetcher });
+    await api.leadMatches('lead-1');
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/leads/lead-1/matches');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-2');
+  });
+  it('sends duplicate acknowledgment, existing account, and optional Deal atomically in a scoped conversion', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(success({
+      contact_id: 'c', account_id: 'a', deal_id: 'd', lead_id: 'lead-1',
+    }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-2',
+      fetchImpl: fetcher, getXsrfToken: () => 'xsrf' });
+    const result = await api.convertLead('lead-1', {
+      expected_version: 2, first_name: 'Amina', last_name: 'Khan',
+      account_id: 'a', allow_duplicate_contact: true,
+      deal: { name: 'Opportunity', pipeline_id: 'p', stage_id: 's', amount: 250, currency: 'USD' },
+    });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/leads/lead-1/convert');
+    expect(init?.method).toBe('POST');
+    expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('xsrf');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-2');
+    const payload = JSON.parse(String(init?.body));
+    expect(payload.account_id).toBe('a');
+    expect(payload.account_name).toBeUndefined();
+    expect(payload.allow_duplicate_contact).toBe(true);
+    expect(payload.deal).toEqual({ name: 'Opportunity', pipeline_id: 'p', stage_id: 's', amount: 250, currency: 'USD' });
+    expect(result.deal_id).toBe('d');
+  });
+
 });
