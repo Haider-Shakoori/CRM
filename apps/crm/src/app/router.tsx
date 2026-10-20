@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet, type RouteObject } from 'react-router-dom';
+import { isLiveCrmMode, LiveRouteBridge } from './LiveRouteBridge';
 import { AppShell } from './shell/AppShell';
 
 /**
@@ -83,6 +84,7 @@ export const routes: RouteObject[] = [
   { path: '/crm/activities', element: lazyScreen(() => import('../routes/api/ApiActivities')) },
   { path: '/crm/tasks', element: lazyScreen(() => import('../routes/api/ApiActivities')) },
   { path: '/crm/my-work', element: lazyScreen(() => import('../routes/api/ApiActivities')) },
+  { path: '/crm/calendar', element: lazyScreen(() => import('../routes/api/ApiCalendar')) },
   { path: '/crm/dashboard', element: lazyScreen(() => import('../routes/api/ApiReportingDashboard')) },
   { path: '/crm/subscription', element: lazyScreen(() => import('../routes/api/ApiSubscriptionPage')) },
   { path: '/forgot-password', element: lazyScreen(() => import('../routes/api/ApiPasswordRecovery')) },
@@ -535,6 +537,19 @@ export const moduleRouteManifest: Array<{ prefix: string; moduleKey: string | nu
 export function moduleKeyForPath(pathname: string): string | null | undefined {
   const match = moduleRouteManifest.find((entry) => pathname.startsWith(entry.prefix));
   return match ? match.moduleKey : undefined;
+}
+
+// In real mode, replace the entire mock AppShell subtree rather than only
+// redirecting a handful of screens while leaving synthetic chrome visible.
+if (isLiveCrmMode) {
+  const app = routes.find((item) => item.path === '/app');
+  if (app) {
+    app.element = <Outlet />;
+    app.children = [
+      { index: true, element: <LiveRouteBridge /> },
+      { path: '*', element: <LiveRouteBridge /> },
+    ];
+  }
 }
 
 export const router = createBrowserRouter(routes);
