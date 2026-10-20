@@ -234,6 +234,53 @@ export default function ApiReportingDashboard() {
                           })}</div>}
                         <p className="text-xs text-muted">{pipelineReport?.definitions.won} {pipelineReport?.definitions.deals}</p>
                       </section>
+                      <section className="space-y-4 rounded-xl border p-5" aria-label="Deal forecast">
+                        <h2 className="text-lg font-semibold">Stage-weighted deal outlook</h2>
+                        <p className="text-sm text-muted">Open deals multiplied by stage probability assumptions, not statistical predictions or recognized revenue. Currencies are never combined.</p>
+                        <div className="flex flex-wrap gap-3">
+                          <label className="text-sm">Expected close from
+                            <input type="date" className="block rounded border p-2" value={closeFrom}
+                              onChange={(event) => setCloseFrom(event.target.value)} />
+                          </label>
+                          <label className="text-sm">Expected close through
+                            <input type="date" className="block rounded border p-2" value={closeTo}
+                              onChange={(event) => setCloseTo(event.target.value)} />
+                          </label>
+                        </div>
+                        {forecast && <div className="overflow-x-auto rounded border">
+                          <table className="w-full text-left text-sm">
+                            <thead><tr><th className="p-3">Currency</th><th className="p-3">Deals</th>
+                              <th className="p-3">Open amount</th><th className="p-3">Weighted open outlook</th>
+                              <th className="p-3">Won opportunities</th><th className="p-3">Lost opportunities</th>
+                            </tr></thead>
+                            <tbody>{forecast.currencies.map((row) =>
+                              <tr className="border-t" key={row.currency}>
+                                <td className="p-3 font-semibold">{row.currency}</td>
+                                <td className="p-3">{row.deal_count}</td>
+                                <td className="p-3 tabular-nums">{row.open_value}</td>
+                                <td className="p-3 tabular-nums">{row.weighted_open_value}</td>
+                                <td className="p-3 tabular-nums">{row.won_value}</td>
+                                <td className="p-3 tabular-nums">{row.lost_value}</td>
+                              </tr>)}</tbody>
+                          </table>
+                          {forecast.currencies.length === 0 && <p className="p-3 text-sm">No deals in the selected outlook window.</p>}
+                        </div>}
+                        <h3 className="font-semibold">Stage probability assumptions</h3>
+                        {forecastError && <p role="alert" className="text-red-600">{forecastError}</p>}
+                        <div className="grid gap-3 md:grid-cols-2">{displayPipelines.flatMap((pipeline) =>
+                          pipeline.stages.map((stage) => <label className="flex items-center justify-between gap-3 rounded border p-3 text-sm"
+                            key={stage.id}>
+                            <span>{pipeline.name} / {stage.name} ({stage.kind})</span>
+                            <input aria-label={'Probability ' + pipeline.name + ' ' + stage.name} type="number" min={0} max={100} step={1}
+                              disabled={stage.kind !== 'open' || !canWrite || busy} className="w-20 rounded border p-2"
+                              value={probabilityDraft[stage.id] ?? String(stage.probability)}
+                              onChange={(event) => setProbabilityDraft((prev) => ({ ...prev, [stage.id]: event.target.value }))}/>
+                            {stage.kind === 'open' && canWrite && <button type="button" disabled={busy}
+                              className="underline disabled:opacity-50"
+                              onClick={() => { void saveProbability(pipeline.id, stage.id, stage.probability); }}>Save</button>}
+                          </label>))}</div>
+                        <p className="text-xs text-muted">{forecast?.assumptions.confidence} · {forecast?.assumptions.basis}</p>
+                      </section>
                     </>}
             </>}
   </main>;
