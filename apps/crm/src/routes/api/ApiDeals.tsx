@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ApiError, createLaravelClient, type ApiDeal, type ApiDealEvent, type ApiIdentity,
+  ApiError, createLaravelClient, type ApiAccount, type ApiDeal, type ApiDealEvent, type ApiIdentity,
   type ApiPage, type ApiPipeline, type ApiStageKind,
 } from '../../app/laravelClient';
 
@@ -24,6 +24,7 @@ export default function ApiDeals() {
   const [organizationId, setOrganizationId] = React.useState('');
   const [pipelineState, setPipelineState] = React.useState<PipelineState | null>(null);
   const [pipelineId, setPipelineId] = React.useState('');
+  const [accountOptions, setAccountOptions] = React.useState<{ organizationId: string; items: ApiAccount[] } | null>(null);
   const [pipelineName, setPipelineName] = React.useState('');
   const [stageName, setStageName] = React.useState('');
   const [stageKind, setStageKind] = React.useState<ApiStageKind>('open');
@@ -46,6 +47,7 @@ export default function ApiDeals() {
     () => baseUrl ? createLaravelClient({ baseUrl, organizationId }) : null, [baseUrl, organizationId],
   );
   const role = identity?.organizations.find((org) => org.id === organizationId)?.role;
+  const selectableAccounts = accountOptions?.organizationId === organizationId ? accountOptions.items : [];
   const writable = !!role && role !== 'viewer';
   const pipelines = pipelineState?.organizationId === organizationId ? pipelineState.items : [];
   const active = pipelines.find((pipe) => pipe.id === pipelineId);
@@ -87,6 +89,17 @@ export default function ApiDeals() {
     });
     return () => { current = false; };
   }, [client, organizationId, identity?.user.email_verified, pipelineRevision, navigate]);
+
+  React.useEffect(() => {
+    if (!client || !organizationId || !identity?.user.email_verified) return;
+    let current = true;
+    void client.listAccounts({ pageSize: 100 }).then((data) => {
+      if (current) setAccountOptions({ organizationId, items: data.items });
+    }).catch(() => {
+      if (current) setAccountOptions({ organizationId, items: [] });
+    });
+    return () => { current = false; };
+  }, [client, organizationId, identity?.user.email_verified]);
 
   React.useEffect(() => {
     if (!client || !active || !identity?.user.email_verified) return;
@@ -286,6 +299,13 @@ export default function ApiDeals() {
                       <input required maxLength={3} minLength={3} value={draft.currency} className="block w-full rounded border p-2"
                         onChange={(event) => setDraft((old) => ({ ...old, currency: event.target.value }))} />
                     </label>
+                    <label className="space-y-1 text-sm">Linked account (optional)
+                      <select value={draft.account_id} className="block w-full rounded border p-2"
+                        onChange={(event) => setDraft((old) => ({ ...old, account_id: event.target.value }))}>
+                        <option value="">No linked account</option>
+                        {selectableAccounts.map((account) => <option value={account.id} key={account.id}>{account.name}</option>)}
+                      </select>
+                    </label>
                     <label className="space-y-1 text-sm">Expected close date
                       <input type="date" value={draft.expected_close_date} className="block w-full rounded border p-2"
                         onChange={(event) => setDraft((old) => ({ ...old, expected_close_date: event.target.value }))} />
@@ -294,6 +314,7 @@ export default function ApiDeals() {
                       <textarea value={draft.notes} className="block w-full rounded border p-2"
                         onChange={(event) => setDraft((old) => ({ ...old, notes: event.target.value }))} />
                     </label>
+                    <p className="text-xs text-muted sm:col-span-2">Account choices show the first 100 accounts; a searchable picker is planned for a later batch.</p>
                     <div className="flex gap-2 sm:col-span-2">
                       <button disabled={busy} className="rounded bg-blue-700 px-4 py-2 text-white">Save deal</button>
                       <button type="button" className="rounded border px-4 py-2" onClick={resetForm}>Cancel</button>
