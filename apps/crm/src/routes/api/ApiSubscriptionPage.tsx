@@ -60,7 +60,6 @@ export default function ApiSubscriptionPage() {
 
   React.useEffect(() => {
     if (!client || !organizationId || !canView || !current?.billing_connected || current.billing_linked) {
-      setPlans([]); setChosenPlan('');
       return;
     }
     let active = true;
@@ -112,7 +111,8 @@ export default function ApiSubscriptionPage() {
             : <>
               <label className="block max-w-md space-y-1 text-sm">Organization
                 <select aria-label="Organization" className="block w-full rounded border p-2" value={organizationId}
-                  onChange={(event) => { setOrganizationId(event.target.value); setSnapshot(null); setError(''); }}>
+                  onChange={(event) => { setOrganizationId(event.target.value); setSnapshot(null); setError('');
+                    setPlans([]); setChosenPlan(''); setBillingError(''); }}>
                   {identity.organizations.map((entry) =>
                     <option key={entry.id} value={entry.id}>{entry.name} ({entry.role})</option>)}
                 </select>
