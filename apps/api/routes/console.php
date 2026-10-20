@@ -121,3 +121,22 @@ Artisan::command('crm:platform:revoke {email}', function () {
     $this->info('Platform grant revoked.');
     return 0;
 })->purpose('Revoke platform operator authorization from trusted server console.');
+
+
+// Never auto-publish paid plans just because environment keys were entered.
+Artisan::command('crm:stripe:publish-plan {code} {--revoke}', function () {
+    $code = (string) $this->argument('code');
+    $revoke = (bool) $this->option('revoke');
+    if (!in_array($code, ['team', 'business'], true)) {
+        $this->error('Only configured Team/Business paid plans may be published.'); return 1;
+    }
+    if (!$revoke && (!\App\Support\StripeBilling::configured() ||
+        !\App\Support\StripeBilling::price($code))) {
+        $this->error('Enable Stripe test mode and configure a valid recurring Price ID first.'); return 1;
+    }
+    $updated = \Illuminate\Support\Facades\DB::table('crm_subscription_plans')
+        ->where('code', $code)->update(['public' => !$revoke, 'updated_at' => now()]);
+    if (!$updated) { $this->error('Plan not found.'); return 1; }
+    $this->info($revoke ? 'Paid plan unpublished.' : 'Paid plan published for Stripe TEST checkout only.');
+    return 0;
+})->purpose('Explicitly publish or unpublish a test-mode paid Stripe plan; never charges customers.');
