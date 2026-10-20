@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration {
     public function up(): void
@@ -26,6 +27,7 @@ return new class extends Migration {
         Schema::table('crm_pipeline_stages', function (Blueprint $table) {
             $table->unsignedTinyInteger('probability')->default(0);
         });
+        DB::statement("UPDATE crm_pipeline_stages SET probability = CASE WHEN kind = 'won' THEN 100 WHEN kind = 'lost' THEN 0 WHEN position = 1 THEN 10 WHEN position = 2 THEN 25 WHEN position = 3 THEN 60 ELSE 25 END");
     }
 
     public function down(): void
