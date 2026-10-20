@@ -22,7 +22,7 @@ const liveRouteMap: Record<string, string> = {
  * Unsupported deep links remain blocked until a real contract exists.
  */
 export function liveRouteDestination(path: string): string | null {
-  const pathname = path.replace(/\\/$/, '') || '/app';
+  const pathname = path.replace(/\/$/, '') || '/app';
   return liveRouteMap[pathname === '/app' ? '/app/home' : pathname] ?? null;
 }
 
