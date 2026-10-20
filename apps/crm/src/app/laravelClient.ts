@@ -38,6 +38,38 @@ export interface ApiLead {
   updated_at: string;
 }
 
+
+export interface ApiAccount {
+  id: string;
+  organization_id: string;
+  name: string;
+  website: string | null;
+  phone: string | null;
+  industry: string | null;
+  notes: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiContact {
+  id: string;
+  organization_id: string;
+  account_id: string | null;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  job_title: string | null;
+  notes: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AccountInput = { name: string; website?: string | null; phone?: string | null; industry?: string | null; notes?: string | null };
+export type ContactInput = { first_name: string; last_name: string; account_id?: string | null; email?: string | null; phone?: string | null; job_title?: string | null; notes?: string | null };
+
 export interface ApiPage<T> {
   items: T[];
   meta: { page: number; pageSize: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
@@ -113,5 +145,30 @@ export function createLaravelClient(options: ApiOptions) {
     updateLead: (id: string, patch: { expected_version: number; name?: string; email?: string | null; notes?: string | null; status?: string }) =>
       request<ApiLead>('/api/v1/leads/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(patch) }, true),
     deleteLead: (id: string) => request<{ id: string }>('/api/v1/leads/' + encodeURIComponent(id), { method: 'DELETE' }, true),
+    listAccounts: (params: { page?: number; pageSize?: number; q?: string } = {}) => {
+      const search = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value));
+      return request<ApiPage<ApiAccount>>('/api/v1/accounts' + (search.size ? '?' + search.toString() : ''), {}, true);
+    },
+    getAccount: (id: string) => request<ApiAccount>('/api/v1/accounts/' + encodeURIComponent(id), {}, true),
+    createAccount: (input: AccountInput) =>
+      request<ApiAccount>('/api/v1/accounts', { method: 'POST', body: JSON.stringify(input) }, true),
+    updateAccount: (id: string, patch: Partial<AccountInput> & { expected_version: number }) =>
+      request<ApiAccount>('/api/v1/accounts/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(patch) }, true),
+    deleteAccount: (id: string) =>
+      request<{ id: string }>('/api/v1/accounts/' + encodeURIComponent(id), { method: 'DELETE' }, true),
+    listContacts: (params: { page?: number; pageSize?: number; q?: string; account_id?: string } = {}) => {
+      const search = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value));
+      return request<ApiPage<ApiContact>>('/api/v1/contacts' + (search.size ? '?' + search.toString() : ''), {}, true);
+    },
+    getContact: (id: string) => request<ApiContact>('/api/v1/contacts/' + encodeURIComponent(id), {}, true),
+    createContact: (input: ContactInput) =>
+      request<ApiContact>('/api/v1/contacts', { method: 'POST', body: JSON.stringify(input) }, true),
+    updateContact: (id: string, patch: Partial<ContactInput> & { expected_version: number }) =>
+      request<ApiContact>('/api/v1/contacts/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(patch) }, true),
+    deleteContact: (id: string) =>
+      request<{ id: string }>('/api/v1/contacts/' + encodeURIComponent(id), { method: 'DELETE' }, true),
+
   };
 }
