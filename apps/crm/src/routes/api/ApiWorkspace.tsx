@@ -110,6 +110,7 @@ export default function ApiWorkspace() {
     } catch (cause) {
       handleError(cause, 'Could not save changes.');
       if (cause instanceof ApiError && cause.status === 409) {
+        setEdit(null);
         setNotice('This lead changed in another session. Refresh and reopen it before editing.');
         refresh();
       }
@@ -170,7 +171,7 @@ export default function ApiWorkspace() {
             ) : (
               <>
                 <label className="block max-w-md space-y-1">Organization
-                  <select aria-label="Organization" className="block w-full rounded border p-2" value={orgId}
+                  <select aria-label="Organization" disabled={busy} className="block w-full rounded border p-2 disabled:opacity-50" value={orgId}
                     onChange={(event) => {
                       setOrgId(event.target.value);
                       setEdit(null); setDeleteId(null); setActionError(''); setNotice('');
@@ -193,6 +194,7 @@ export default function ApiWorkspace() {
                       : visible.error ? <p role="alert">{visible.error}</p>
                         : (
                           <div className="overflow-x-auto rounded border">
+                            <p className="px-3 pt-2 text-xs text-muted">Showing up to 100 most recent Leads for this organization.</p>
                             <table className="w-full text-left text-sm">
                               <thead><tr><th className="p-3">Name</th><th className="p-3">Status</th><th className="p-3">Email</th><th className="p-3">Version</th><th className="p-3">Actions</th></tr></thead>
                               <tbody>{items.map((lead) => (
