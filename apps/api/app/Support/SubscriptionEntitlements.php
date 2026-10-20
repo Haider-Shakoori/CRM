@@ -20,8 +20,17 @@ final class SubscriptionEntitlements
                 'sub.cancel_at_period_end', 'plan.code', 'plan.name', 'plan.limits',
             ]);
         if (!$row) {
-            // Test fixtures or pre-subscription systems can lack a row. Never
-            // guess paid entitlements: legacy compatibility is explicit.
+            // Missing subscription rows are a configuration error in deployed
+            // environments. Test-created tenants intentionally use Legacy
+            // compatibility because older fixture builders omit subscription rows.
+            if (!app()->environment('testing')) {
+                return [
+                    'id' => null, 'plan' => 'unconfigured', 'plan_name' => 'Subscription unavailable',
+                    'status' => 'inactive', 'version' => 0, 'period_ends_at' => null,
+                    'cancel_at_period_end' => false,
+                    'limits' => array_fill_keys(self::RESOURCES, null),
+                ];
+            }
             $legacy = DB::table('crm_subscription_plans')->where('code', 'legacy')->first();
             return [
                 'id' => null, 'plan' => $legacy?->code ?? 'legacy',
