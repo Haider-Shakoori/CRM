@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\RequireOrganizationWriteRole;
 use App\Http\Middleware\ResolveOrganization;
+use App\Http\Middleware\RequirePlatformOperator;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'organization' => ResolveOrganization::class,
             'organization.write' => RequireOrganizationWriteRole::class,
+            'platform.operator' => RequirePlatformOperator::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

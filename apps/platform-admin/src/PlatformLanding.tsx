@@ -81,9 +81,9 @@ export function PlatformLanding() {
       <main>
         <Container width="content" className="space-y-8 py-12">
           <div className="max-w-3xl space-y-4">
-            <Badge variant="outline">Not built yet</Badge>
+            <Badge variant="outline">Demo mode · Laravel API not configured</Badge>
             <h1 className="text-3xl font-bold tracking-tight text-fg">
-              The platform console is a separate application, and it is scheduled next
+              The platform console is separate and ready for secure API configuration
             </h1>
             <p className="text-base leading-relaxed text-muted">
               This is the third of three applications in the monorepo. It shares the design tokens, the
@@ -95,7 +95,7 @@ export function PlatformLanding() {
               The service contracts for everything below already exist in{' '}
               <code className="rounded bg-inset px-1 py-0.5 font-mono text-[0.6875rem]">@crm/shared-types</code>, and the
               synthetic platform dataset — tenants, plans, subscriptions, invoices, feature flags, the module
-              catalog and localization rows — is already generated. What is missing is the screens.
+              catalog and localization rows — is already generated. The live tenant directory and manual entitlement screens are now implemented behind operator authorization; this demo does not access them.
             </p>
           </div>
 

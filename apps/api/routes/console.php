@@ -77,3 +77,43 @@ Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code}
         return 1;
     }
 })->purpose('Operator-only CRM entitlement changes; never charges or changes Stripe.');
+
+
+// Bootstrap privileges only from trusted server console, never from a tenant UI.
+Artisan::command('crm:platform:grant {email} {role=viewer}', function () {
+    $email = \Illuminate\Support\Str::lower(trim((string) $this->argument('email')));
+    $role = (string) $this->argument('role');
+    if (!in_array($role, ['viewer', 'operator'], true)) {
+        $this->error('Role must be viewer or operator.'); return 1;
+    }
+    $user = \App\Models\User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+    if (!$user || !$user->hasVerifiedEmail()) {
+        $this->error('An existing verified user account is required.'); return 1;
+    }
+    \Illuminate\Support\Facades\DB::transaction(function () use ($user, $role): void {
+        $grant = \Illuminate\Support\Facades\DB::table('crm_platform_operators');
+        $existing = (clone $grant)->where('user_id', $user->id)->lockForUpdate()->first();
+        if ($existing) {
+            (clone $grant)->where('id', $existing->id)->update([
+                'role' => $role, 'active' => true, 'updated_at' => now(),
+            ]);
+        } else {
+            (clone $grant)->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid(), 'user_id' => $user->id,
+                'role' => $role, 'active' => true, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+    });
+    $this->info('Platform grant set to '.$role.' for verified account '.$email.'.');
+    return 0;
+})->purpose('Grant a verified CRM user an explicit platform operator role from trusted server console.');
+
+Artisan::command('crm:platform:revoke {email}', function () {
+    $email = \Illuminate\Support\Str::lower(trim((string) $this->argument('email')));
+    $id = \App\Models\User::query()->whereRaw('LOWER(email) = ?', [$email])->value('id');
+    if (!$id) { $this->error('No such user.'); return 1; }
+    \Illuminate\Support\Facades\DB::table('crm_platform_operators')->where('user_id', $id)
+        ->update(['active' => false, 'updated_at' => now()]);
+    $this->info('Platform grant revoked.');
+    return 0;
+})->purpose('Revoke platform operator authorization from trusted server console.');
