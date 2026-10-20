@@ -164,7 +164,14 @@ final class StripeBilling
         $priceId = $object['items']['data'][0]['price']['id'] ?? null;
         $planId = $intent?->plan_id ?? $link->plan_id;
         $plan = DB::table('crm_subscription_plans')->where('id', $planId)->first();
-        if (!$plan || $priceId !== self::price($plan->code) || ($intent && $intent->price_id !== $priceId)) {
+        // Stripe deletion events can omit price details. A deletion can only
+        // revoke a subscription that is already linked by exact provider ID
+        // and customer. Never permit this exception to activate or switch plans.
+        $knownDeletion = $event['type'] === 'customer.subscription.deleted'
+            && $link && $link->stripe_subscription_id === $subId
+            && $link->stripe_customer_id === $customer;
+        if (!$plan || (!$knownDeletion &&
+            ($priceId !== self::price($plan->code) || ($intent && $intent->price_id !== $priceId)))) {
             return 'price_mismatch';
         }
         if ($link && ($link->stripe_customer_id !== $customer || $link->tenant_id !== $tenant)) {
