@@ -166,7 +166,7 @@ final class SubscriptionEntitlementsTest extends TestCase
         $tenantId = $org->tenant_id;
         $this->assertSame(0, Artisan::call('crm:subscription:set', [
             'tenant' => $tenantId, 'plan' => 'team', 'status' => 'past_due',
-            '--version' => '1',
+            '--expected-version' => '1',
         ]));
         $this->assertSame('team', SubscriptionEntitlements::snapshot($tenantId)['plan']);
         $this->assertSame('past_due', SubscriptionEntitlements::snapshot($tenantId)['status']);
@@ -175,7 +175,7 @@ final class SubscriptionEntitlementsTest extends TestCase
         ]);
         $this->assertSame(1, Artisan::call('crm:subscription:set', [
             'tenant' => $tenantId, 'plan' => 'business', 'status' => 'active',
-            '--version' => '1',
+            '--expected-version' => '1',
         ]));
         $this->assertSame('team', SubscriptionEntitlements::snapshot($tenantId)['plan']);
         $this->assertDatabaseCount('crm_subscription_events', 1);
