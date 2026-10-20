@@ -1,3 +1,4 @@
+import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -55,7 +56,7 @@ export default function ApiReportingDashboard() {
     void auth.me().then((data) => {
       if (!active) return;
       setIdentity(data);
-      setOrganizationId(data.organizations[0]?.id ?? '');
+      setOrganizationId(preferredLiveOrganization(data));
     }).catch((cause: unknown) => {
       if (!active) return;
       if (cause instanceof ApiError && cause.status === 401) {
@@ -141,7 +142,7 @@ export default function ApiReportingDashboard() {
                 <label className="min-w-56 flex-1 space-y-1 text-sm">Organization
                   <select aria-label="Organization" disabled={busy} className="block w-full rounded border p-2"
                     value={organizationId} onChange={(event) => {
-                      setOrganizationId(event.target.value);
+                      setOrganizationId(event.target.value); storeLiveOrganization(event.target.value);
                       setPipelineId(''); setCloseFrom(''); setCloseTo(''); setProbabilityDraft({});
                       setError(''); setForecastError(''); setResult(null);
                     }}>
