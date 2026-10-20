@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ApiError, createLaravelClient } from '../../app/laravelClient';
+import { createLaravelClient } from '../../app/laravelClient';
 
 /** Backend-issued reset links use /reset-password?token=...&email=... . */
 export default function ApiPasswordRecovery() {
