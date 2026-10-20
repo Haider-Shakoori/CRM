@@ -7,6 +7,7 @@ use App\Models\CrmActivity;
 use App\Models\CrmAccount;
 use App\Models\CrmContact;
 use App\Support\AuditTrail;
+use App\Support\SubscriptionEntitlements;
 use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,7 @@ final class CrmContactController
         $input = $request->validate($this->rules(false));
         $this->validateAccount($input);
         $contact = DB::transaction(function () use ($request, $context, $input): CrmContact {
+            SubscriptionEntitlements::guardCreate($context->tenantId, 'contacts');
             $contact = new CrmContact();
             $contact->forceFill(array_merge($input, [
                 'organization_id' => $context->organizationId, 'version' => 1,
