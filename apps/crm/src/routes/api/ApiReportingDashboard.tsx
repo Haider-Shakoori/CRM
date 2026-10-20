@@ -84,6 +84,7 @@ export default function ApiReportingDashboard() {
   };
   // The report endpoint never sums across currencies; no currency conversion is implied.
   const reportPipelines = pipelineReport?.pipelines ?? [];
+  const displayPipelines = pipelineId ? reportPipelines.filter((pipe) => pipe.id === pipelineId) : reportPipelines;
   const groups = pipelineReport?.stage_currency_totals ?? [];
   const leadStatusData = overview ? Object.entries(overview.leads_by_status)
     .sort(([a], [b]) => a.localeCompare(b)) : [];
@@ -181,7 +182,7 @@ export default function ApiReportingDashboard() {
                           </label>
                         </div>
                         {reportPipelines.length === 0 ? <p className="text-sm text-muted">No pipelines yet. Add one in Live Deals.</p>
-                          : <div className="space-y-5">{reportPipelines.map((pipeline) => {
+                          : <div className="space-y-5">{displayPipelines.map((pipeline) => {
                             const forPipeline = groups.filter((row) => row.pipeline_id === pipeline.id);
                             return <section key={pipeline.id} className="space-y-2">
                               <h3 className="font-medium">{pipeline.name}</h3>
