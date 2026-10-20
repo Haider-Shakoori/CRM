@@ -174,7 +174,7 @@ describe('Laravel browser client', () => {
     }));
     const client = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-4', fetchImpl: mock });
     const page = await client.listActivities({ page: 2, pageSize: 25, kind: 'task', status: 'open', mine: true });
-    expect(mock.mock.calls[0]![0]).toBe('https://api.example.test/api/v1/activities?page=2&pageSize=25&kind=task&status=open&mine=true');
+    expect(mock.mock.calls[0]![0]).toBe('https://api.example.test/api/v1/activities?page=2&pageSize=25&kind=task&status=open&mine=1');
     expect(new Headers(mock.mock.calls[0]![1]?.headers).get('X-Organization-ID')).toBe('org-4');
     expect(page.meta.totalPages).toBe(3);
   });
