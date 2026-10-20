@@ -1,3 +1,4 @@
+import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LeadConversionForm from './LeadConversionForm';
@@ -66,7 +67,7 @@ export default function ApiWorkspace() {
       if (!current) return;
       setIdentity(data);
       setOrgId((previous) => data.organizations.some((org) => org.id === previous)
-        ? previous : (data.organizations[0]?.id ?? ''));
+        ? previous : preferredLiveOrganization(data));
     }).catch((cause: unknown) => {
       if (!current) return;
       if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
@@ -188,7 +189,7 @@ export default function ApiWorkspace() {
                 <label className="block max-w-md space-y-1">Organization
                   <select aria-label="Organization" disabled={busy} className="block w-full rounded border p-2 disabled:opacity-50" value={orgId}
                     onChange={(event) => {
-                      setOrgId(event.target.value);
+                      setOrgId(event.target.value); storeLiveOrganization(event.target.value);
                       setPage(1); setQuery(''); setSearchInput(''); setStatus('');
                       setEdit(null); setDeleteId(null); setConvert(null); setConversionResult(null);
                       setActionError(''); setNotice('');
