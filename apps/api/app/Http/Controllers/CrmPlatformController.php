@@ -113,6 +113,13 @@ final class CrmPlatformController
 
         return DB::transaction(function () use ($request, $id, $data): JsonResponse {
             $tenant = Tenant::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+            if (DB::table('crm_stripe_subscription_links')->where('tenant_id', $tenant->id)->exists()) {
+                return response()->json(['ok' => false, 'error' => [
+                    'code' => 'stripe_managed',
+                    'message' => 'Stripe-linked subscriptions cannot be modified manually.',
+                    'retryable' => false,
+                ]], 409);
+            }
             $sub = DB::table('crm_tenant_subscriptions')->where('tenant_id', $tenant->id)
                 ->lockForUpdate()->first();
             if (!$sub || (int) $sub->version !== (int) $data['expected_version']) {
