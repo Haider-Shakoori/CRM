@@ -178,6 +178,11 @@ final class StripeBilling
         $knownDeletion = $event['type'] === 'customer.subscription.deleted'
             && $link && $link->stripe_subscription_id === $subId
             && $link->stripe_customer_id === $customer;
+        if (!$knownDeletion && ($object['collection_method'] ?? null) !== 'charge_automatically') {
+            // A manually marked paid invoice can leave Stripe status "active"
+            // without funds collection. Checkout must be automatic billing.
+            return 'unsupported_collection_method';
+        }
         if (!$plan || (!$knownDeletion &&
             ($priceId !== self::price($plan->code) || ($intent && $intent->price_id !== $priceId)))) {
             return 'price_mismatch';
