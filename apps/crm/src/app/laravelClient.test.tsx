@@ -80,4 +80,44 @@ describe('Laravel browser client', () => {
     expect(data.meta.hasNext).toBe(false);
   });
 
+  it('scopes the Accounts listing to an organization and preserves server pagination', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({
+      items: [], meta: { page: 2, pageSize: 25, total: 47, totalPages: 2, hasNext: false, hasPrev: true },
+    }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-3', fetchImpl: mock });
+    const page = await api.listAccounts({ page: 2, pageSize: 25, q: 'Acme' });
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/accounts?page=2&pageSize=25&q=Acme');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-3');
+    expect(page.meta.total).toBe(47);
+  });
+  it('sends Contact-to-Account relations using the server-validated account ID', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({ id: 'c1', version: 1 }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-3',
+      fetchImpl: mock, getXsrfToken: () => 'xsrf' });
+    await api.createContact({ first_name: 'Amina', last_name: 'Khan', account_id: 'account-uuid' });
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/contacts');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-3');
+    expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('xsrf');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      first_name: 'Amina', last_name: 'Khan', account_id: 'account-uuid',
+    });
+  });
+  it('requires an organization even for directory deletes', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(api.deleteContact('c1')).rejects.toBeInstanceOf(ApiError);
+    await expect(api.deleteAccount('a1')).rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('uses expected_version when updating Account records', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({ id: 'a1', version: 3 }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-3', fetchImpl: mock });
+    await api.updateAccount('a1', { name: 'Renamed', expected_version: 2 });
+    const [, init] = mock.mock.calls[0]!;
+    expect(init?.method).toBe('PATCH');
+    expect(JSON.parse(String(init?.body))).toEqual({ name: 'Renamed', expected_version: 2 });
+  });
+
 });
