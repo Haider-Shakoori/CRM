@@ -299,7 +299,9 @@ export function createLaravelClient(options: ApiOptions) {
     listActivities: (params: { page?: number; pageSize?: number; q?: string; kind?: ApiActivityKind;
       status?: ApiActivityStatus; assigned_to?: string; mine?: boolean; due_before?: string } = {}) => {
       const search = new URLSearchParams();
-      for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value));
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== '') search.set(key, typeof value === 'boolean' ? (value ? '1' : '0') : String(value));
+      }
       return request<ApiPage<ApiActivity>>('/api/v1/activities' + (search.size ? '?' + search.toString() : ''), {}, true);
     },
     getActivity: (id: string) => request<ApiActivity>('/api/v1/activities/' + encodeURIComponent(id), {}, true),
