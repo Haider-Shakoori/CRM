@@ -1,3 +1,4 @@
+import { isLiveCrmMode } from '../../app/LiveRouteBridge';
 import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -163,13 +164,13 @@ export default function ApiWorkspace() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">CRM / Sales / Leads</p>
           <h1 className="text-2xl font-bold">Leads</h1>
-          <p className="text-sm text-muted">Live Laravel/PostgreSQL data. Only this Leads view is connected; other CRM modules remain a demo.</p>
+          <p className="text-sm text-muted">Live Laravel/PostgreSQL data. This Leads view uses real data; unsupported advanced workflows remain disabled in live mode.</p>
         </div>
         <nav className="flex gap-4">
           <Link className="underline" to="/crm/accounts">Live Accounts</Link>
           <Link className="underline" to="/crm/contacts">Live Contacts</Link>
       <Link className="underline" to="/crm/deals">Live Deals</Link>
-          <Link className="underline" to="/app/leads">Demo Leads</Link>
+          {!isLiveCrmMode && <Link className="underline" to="/app/leads">Demo Leads</Link>}
           <button type="button" className="underline disabled:opacity-50" disabled={busy} onClick={() => { void logout(); }}>Sign out</button>
         </nav>
       </header>
