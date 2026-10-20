@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\OrganizationContext;
 use App\Support\SubscriptionEntitlements;
+use App\Support\StripeBilling;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ final class CrmSubscriptionController
         return response()->json(['ok' => true, 'data' => $plans->map(fn ($p) => [
             'code' => $p->code, 'name' => $p->name,
             'limits' => json_decode($p->limits, true),
-            'checkout_available' => false,
+            'checkout_available' => StripeBilling::configured() && StripeBilling::price($p->code) !== null,
         ])]);
     }
 
@@ -33,12 +34,19 @@ final class CrmSubscriptionController
         }
         $subscription = SubscriptionEntitlements::snapshot($context->tenantId);
         $subscription['limits']['seats'] = SubscriptionEntitlements::effectiveSeatLimit($context->tenantId);
+        $linked = DB::table('crm_stripe_subscription_links')->where('tenant_id', $context->tenantId)->exists();
+        $available = StripeBilling::configured();
         return response()->json(['ok' => true, 'data' => [
             'subscription' => $subscription,
             'usage' => SubscriptionEntitlements::usage($context->tenantId),
             'write_enabled' => SubscriptionEntitlements::canWrite($subscription),
-            'billing_connected' => false,
-            'manage_message' => 'Subscription changes are currently managed by the platform operator. No payment collection is connected.',
+            'billing_connected' => $available,
+            'billing_linked' => $linked,
+            'billing_mode' => $available ? 'test' : 'disabled',
+            'manage_message' => !$available
+                ? 'Stripe billing is not configured. No payment collection is available.'
+                : ($linked ? 'Manage this Stripe test subscription in the billing portal.'
+                    : 'Stripe test checkout is available only for explicitly published plans.'),
         ]]);
     }
 }
