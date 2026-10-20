@@ -221,6 +221,43 @@ final class ActivitiesTasksTest extends TestCase
         }
     }
 
+
+    public function test_calendar_date_windows_are_exclusive_at_end_and_isolated_by_organization(): void
+    {
+        $alpha = $this->org('Alpha');
+        $bravo = $this->org('Bravo');
+        $this->actingAs($this->member($bravo))->withHeader('X-Organization-ID', $bravo->id);
+        $this->postJson('/api/v1/activities', [
+            'title' => 'Foreign meeting', 'kind' => 'meeting',
+            'due_at' => '2026-11-15T12:00:00+00:00',
+        ])->assertCreated();
+        $this->actingAs($this->member($alpha))->withHeader('X-Organization-ID', $alpha->id);
+        foreach ([
+            ['Before', '2026-10-31T23:59:59+00:00'],
+            ['Starts', '2026-11-01T00:00:00+00:00'],
+            ['Middle', '2026-11-20T14:30:00+00:00'],
+            ['Ends', '2026-12-01T00:00:00+00:00'],
+        ] as [$name, $due]) {
+            $this->postJson('/api/v1/activities', [
+                'title' => $name, 'kind' => 'meeting', 'due_at' => $due,
+            ])->assertCreated();
+        }
+        $this->postJson('/api/v1/activities', [
+            'title' => 'No date', 'kind' => 'task',
+        ])->assertCreated();
+        $start = urlencode('2026-11-01T00:00:00+00:00');
+        $end = urlencode('2026-12-01T00:00:00+00:00');
+        $this->getJson('/api/v1/activities?kind=meeting&due_from='.$start.'&due_to='.$end)
+            ->assertOk()->assertJsonPath('data.meta.total', 2)
+            ->assertJsonCount(2, 'data.items')
+            ->assertJsonPath('data.items.0.title', 'Starts')
+            ->assertJsonPath('data.items.1.title', 'Middle');
+        $this->getJson('/api/v1/activities?due_from='.$end.'&due_to='.$start)
+            ->assertUnprocessable();
+        $this->getJson('/api/v1/activities?due_from='.$start.'&due_to='.$start)
+            ->assertUnprocessable();
+    }
+
     public function test_queries_fail_closed_without_organization_context(): void
     {
         $this->assertSame(0, CrmActivity::query()->count());

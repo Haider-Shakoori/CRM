@@ -1,3 +1,5 @@
+import { isLiveCrmMode } from '../../app/LiveRouteBridge';
+import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LeadConversionForm from './LeadConversionForm';
@@ -66,7 +68,7 @@ export default function ApiWorkspace() {
       if (!current) return;
       setIdentity(data);
       setOrgId((previous) => data.organizations.some((org) => org.id === previous)
-        ? previous : (data.organizations[0]?.id ?? ''));
+        ? previous : preferredLiveOrganization(data));
     }).catch((cause: unknown) => {
       if (!current) return;
       if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
@@ -162,13 +164,13 @@ export default function ApiWorkspace() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">CRM / Sales / Leads</p>
           <h1 className="text-2xl font-bold">Leads</h1>
-          <p className="text-sm text-muted">Live Laravel/PostgreSQL data. Only this Leads view is connected; other CRM modules remain a demo.</p>
+          <p className="text-sm text-muted">Live Laravel/PostgreSQL data. This Leads view uses real data; unsupported advanced workflows remain disabled in live mode.</p>
         </div>
         <nav className="flex gap-4">
           <Link className="underline" to="/crm/accounts">Live Accounts</Link>
           <Link className="underline" to="/crm/contacts">Live Contacts</Link>
       <Link className="underline" to="/crm/deals">Live Deals</Link>
-          <Link className="underline" to="/app/leads">Demo Leads</Link>
+          {!isLiveCrmMode && <Link className="underline" to="/app/leads">Demo Leads</Link>}
           <button type="button" className="underline disabled:opacity-50" disabled={busy} onClick={() => { void logout(); }}>Sign out</button>
         </nav>
       </header>
@@ -188,7 +190,7 @@ export default function ApiWorkspace() {
                 <label className="block max-w-md space-y-1">Organization
                   <select aria-label="Organization" disabled={busy} className="block w-full rounded border p-2 disabled:opacity-50" value={orgId}
                     onChange={(event) => {
-                      setOrgId(event.target.value);
+                      setOrgId(event.target.value); storeLiveOrganization(event.target.value);
                       setPage(1); setQuery(''); setSearchInput(''); setStatus('');
                       setEdit(null); setDeleteId(null); setConvert(null); setConversionResult(null);
                       setActionError(''); setNotice('');

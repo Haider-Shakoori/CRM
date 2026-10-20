@@ -1,3 +1,5 @@
+import { isLiveCrmMode } from '../../app/LiveRouteBridge';
+import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -68,7 +70,7 @@ export default function ApiDeals() {
     void auth.me().then((data) => {
       if (!current) return;
       setIdentity(data);
-      setOrganizationId(data.organizations[0]?.id ?? '');
+      setOrganizationId(preferredLiveOrganization(data));
     }).catch((cause: unknown) => {
       if (!current) return;
       if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
@@ -211,7 +213,7 @@ export default function ApiDeals() {
       <Link to="/crm/accounts" className="underline">Live Accounts</Link>
       <Link to="/crm/contacts" className="underline">Live Contacts</Link>
       <Link to="/crm/my-work" className="underline">Live My Work</Link>
-      <Link to="/app/deals" className="underline">Demo Deals</Link>
+      {!isLiveCrmMode && <Link to="/app/deals" className="underline">Demo Deals</Link>}
       <button type="button" disabled={busy} className="ml-auto underline" onClick={() => { void signOut(); }}>Sign out</button>
     </nav>
     <header>
@@ -227,7 +229,7 @@ export default function ApiDeals() {
               <label className="block max-w-md space-y-1 text-sm">Organization
                 <select aria-label="Organization" className="block w-full rounded border p-2" value={organizationId}
                   disabled={busy} onChange={(event) => {
-                    setOrganizationId(event.target.value); setPipelineId(''); setPage(1);
+                    setOrganizationId(event.target.value); storeLiveOrganization(event.target.value); setPipelineId(''); setPage(1);
                     setQuery(''); setSearchInput(''); setHistory(null); resetForm(); setArchiveId(null);
                     setError(''); setNotice('');
                   }}>

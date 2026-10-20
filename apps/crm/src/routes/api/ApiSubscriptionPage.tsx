@@ -1,3 +1,5 @@
+import { isLiveCrmMode } from '../../app/LiveRouteBridge';
+import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -36,7 +38,7 @@ export default function ApiSubscriptionPage() {
     void auth.me().then((result) => {
       if (!active) return;
       setIdentity(result);
-      setOrganizationId(result.organizations[0]?.id ?? '');
+      setOrganizationId(preferredLiveOrganization(result));
     }).catch((cause: unknown) => {
       if (!active) return;
       if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
@@ -97,7 +99,7 @@ export default function ApiSubscriptionPage() {
       <Link className="underline" to="/crm/dashboard">Live Dashboard</Link>
       <Link className="underline" to="/crm/leads">Leads</Link>
       <Link className="underline" to="/crm/my-work">My Work</Link>
-      <Link className="underline" to="/app/home">Demo Home</Link>
+      {!isLiveCrmMode && <Link className="underline" to="/app/home">Demo Home</Link>}
     </nav>
     <header className="space-y-2">
       <p className="text-xs uppercase tracking-wider text-muted">CRM / Organization / Entitlements</p>
@@ -111,7 +113,7 @@ export default function ApiSubscriptionPage() {
             : <>
               <label className="block max-w-md space-y-1 text-sm">Organization
                 <select aria-label="Organization" className="block w-full rounded border p-2" value={organizationId}
-                  onChange={(event) => { setOrganizationId(event.target.value); setSnapshot(null); setError('');
+                  onChange={(event) => { setOrganizationId(event.target.value); storeLiveOrganization(event.target.value); setSnapshot(null); setError('');
                     setPlans([]); setChosenPlan(''); setBillingError(''); }}>
                   {identity.organizations.map((entry) =>
                     <option key={entry.id} value={entry.id}>{entry.name} ({entry.role})</option>)}

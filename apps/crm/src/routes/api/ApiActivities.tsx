@@ -1,3 +1,5 @@
+import { isLiveCrmMode } from '../../app/LiveRouteBridge';
+import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -83,7 +85,7 @@ export default function ApiActivities() {
     void auth.me().then((data) => {
       if (!active) return;
       setIdentity(data);
-      setOrganizationId(data.organizations[0]?.id ?? '');
+      setOrganizationId(preferredLiveOrganization(data));
     }).catch((cause: unknown) => {
       if (!active) return;
       if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
@@ -235,9 +237,10 @@ export default function ApiActivities() {
       <Link className="underline" to="/crm/my-work">My Work</Link>
       <Link className="underline" to="/crm/tasks">Live Tasks</Link>
       <Link className="underline" to="/crm/activities">Live Activities</Link>
+      <Link className="underline" to="/crm/calendar">Live Calendar</Link>
       <Link className="underline" to="/crm/deals">Live Deals</Link>
       <Link className="underline" to="/crm/contacts">Live Contacts</Link>
-      <Link className="underline" to="/app/activities">Demo Activities</Link>
+      {!isLiveCrmMode && <Link className="underline" to="/app/activities">Demo Activities</Link>}
       <button type="button" className="ml-auto underline" disabled={busy} onClick={() => { void signOut(); }}>Sign out</button>
     </nav>
     <header>
@@ -253,7 +256,7 @@ export default function ApiActivities() {
               <label className="block max-w-md space-y-1 text-sm">Organization
                 <select aria-label="Organization" disabled={busy} className="block w-full rounded border p-2" value={organizationId}
                   onChange={(event) => {
-                    setOrganizationId(event.target.value); setPage(1); setQuery(''); setQueryInput('');
+                    setOrganizationId(event.target.value); storeLiveOrganization(event.target.value); setPage(1); setQuery(''); setQueryInput('');
                     setTimeline(null); setDeleteId(null); closeForm(); setError(''); setNotice('');
                   }}>
                   {identity.organizations.map((entry) =>

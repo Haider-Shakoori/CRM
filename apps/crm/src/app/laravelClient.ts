@@ -424,7 +424,7 @@ export function createLaravelClient(options: ApiOptions) {
     },
     listAssignees: () => request<ApiAssignee[]>('/api/v1/activities/assignees', {}, true),
     listActivities: (params: { page?: number; pageSize?: number; q?: string; kind?: ApiActivityKind;
-      status?: ApiActivityStatus; assigned_to?: string; mine?: boolean; due_before?: string } = {}) => {
+      status?: ApiActivityStatus; assigned_to?: string; mine?: boolean; due_before?: string; due_from?: string; due_to?: string } = {}) => {
       const search = new URLSearchParams();
       for (const [key, value] of Object.entries(params)) {
         if (value !== undefined && value !== '') search.set(key, typeof value === 'boolean' ? (value ? '1' : '0') : String(value));

@@ -50,6 +50,8 @@ final class CrmActivityController
             'mine' => ['sometimes', 'boolean'],
             'q' => ['sometimes', 'string', 'max:120'],
             'due_before' => ['sometimes', 'date'],
+            'due_from' => ['sometimes', 'date'],
+            'due_to' => ['sometimes', 'date', 'after:due_from'],
         ]);
         $query = CrmActivity::query();
         if (isset($filters['kind'])) $query->where('kind', $filters['kind']);
@@ -57,6 +59,8 @@ final class CrmActivityController
         if (isset($filters['assigned_to'])) $query->where('assigned_to', $filters['assigned_to']);
         if ($request->boolean('mine')) $query->where('assigned_to', $request->user()->id);
         if (isset($filters['due_before'])) $query->where('due_at', '<', $filters['due_before']);
+        if (isset($filters['due_from'])) $query->where('due_at', '>=', $filters['due_from']);
+        if (isset($filters['due_to'])) $query->where('due_at', '<', $filters['due_to']);
         if (isset($filters['q']) && trim($filters['q']) !== '') {
             $needle = '%'.addcslashes(trim($filters['q']), '%_\\').'%';
             $query->where('title', 'ilike', $needle);

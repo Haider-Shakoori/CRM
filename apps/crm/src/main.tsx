@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router-dom';
 import { ThemeProvider, Toaster, TooltipProvider } from '@crm/ui';
 import { ServiceProvider } from './app/ServiceProvider';
 import { router } from './app/router';
+import { isLiveCrmMode } from './app/LiveRouteBridge';
 import './styles.css';
 
 /**
@@ -99,12 +100,13 @@ ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <ApplicationErrorBoundary>
       <ThemeProvider persist>
-        <ServiceProvider persist>
-          <TooltipProvider>
-            <RouterProvider router={router} />
-            <Toaster />
-          </TooltipProvider>
-        </ServiceProvider>
+        {isLiveCrmMode ? (
+          <TooltipProvider><RouterProvider router={router} /><Toaster /></TooltipProvider>
+        ) : (
+          <ServiceProvider persist>
+            <TooltipProvider><RouterProvider router={router} /><Toaster /></TooltipProvider>
+          </ServiceProvider>
+        )}
       </ThemeProvider>
     </ApplicationErrorBoundary>
   </React.StrictMode>,
