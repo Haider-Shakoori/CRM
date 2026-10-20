@@ -22,7 +22,7 @@ export default function ApiSignIn() {
     try {
       const client = createLaravelClient({ baseUrl: apiBase });
       await client.login(email, password);
-      navigate('/api-workspace', { replace: true });
+      navigate('/crm/leads', { replace: true });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Unable to reach the CRM API.');
     } finally {
