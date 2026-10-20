@@ -86,7 +86,7 @@ Artisan::command('crm:platform:grant {email} {role=viewer}', function () {
     if (!in_array($role, ['viewer', 'operator'], true)) {
         $this->error('Role must be viewer or operator.'); return 1;
     }
-    $user = \App\Models\User::query()->where('email', $email)->first();
+    $user = \App\Models\User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
     if (!$user || !$user->hasVerifiedEmail()) {
         $this->error('An existing verified user account is required.'); return 1;
     }
@@ -101,7 +101,7 @@ Artisan::command('crm:platform:grant {email} {role=viewer}', function () {
 
 Artisan::command('crm:platform:revoke {email}', function () {
     $email = \Illuminate\Support\Str::lower(trim((string) $this->argument('email')));
-    $id = \App\Models\User::query()->where('email', $email)->value('id');
+    $id = \App\Models\User::query()->whereRaw('LOWER(email) = ?', [$email])->value('id');
     if (!$id) { $this->error('No such user.'); return 1; }
     \Illuminate\Support\Facades\DB::table('crm_platform_operators')->where('user_id', $id)
         ->update(['active' => false, 'updated_at' => now()]);
