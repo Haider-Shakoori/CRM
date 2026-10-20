@@ -117,18 +117,26 @@ final class StripeBilling
             $type = $event['type'];
             $tenant = null;
             $outcome = 'ignored';
-            if ($type === 'checkout.session.completed') {
+            if (in_array($type, ['checkout.session.completed', 'checkout.session.expired'], true)) {
                 $intent = DB::table('crm_stripe_checkout_intents')
                     ->where('id', (string) ($object['client_reference_id'] ?? ''))
                     ->lockForUpdate()->first();
                 if ($intent && $intent->stripe_checkout_session_id === ($object['id'] ?? null) &&
                     ($object['mode'] ?? null) === 'subscription') {
                     $tenant = $intent->tenant_id;
-                    DB::table('crm_stripe_checkout_intents')->where('id', $intent->id)->update([
-                        'status' => 'completed', 'stripe_customer_id' => $object['customer'] ?? null,
-                        'stripe_subscription_id' => $object['subscription'] ?? null, 'updated_at' => now(),
-                    ]);
-                    $outcome = 'checkout_verified_no_entitlements';
+                    if ($type === 'checkout.session.expired') {
+                        if ($intent->status !== 'completed') {
+                            DB::table('crm_stripe_checkout_intents')->where('id', $intent->id)
+                                ->update(['status' => 'expired', 'updated_at' => now()]);
+                            $outcome = 'checkout_expired';
+                        }
+                    } else {
+                        DB::table('crm_stripe_checkout_intents')->where('id', $intent->id)->update([
+                            'status' => 'completed', 'stripe_customer_id' => $object['customer'] ?? null,
+                            'stripe_subscription_id' => $object['subscription'] ?? null, 'updated_at' => now(),
+                        ]);
+                        $outcome = 'checkout_verified_no_entitlements';
+                    }
                 }
             } elseif (in_array($type, ['customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'], true)) {
                 $outcome = self::applySubscription($event, $tenant);
