@@ -28,6 +28,9 @@ Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code}
         if ($status === 'trialing' && !$ends) {
             $this->error('Trialing subscriptions require --ends.'); return 1;
         }
+        if ($this->option('cancel-at-period-end') && !$ends) {
+            $this->error('Scheduled cancellation requires an explicit --ends date.'); return 1;
+        }
         $expectedVersion = $this->option('expected-version');
         if ($expectedVersion !== null && (!ctype_digit((string) $expectedVersion) || (int) $expectedVersion < 1)) {
             $this->error('Version must be a positive integer.'); return 1;
