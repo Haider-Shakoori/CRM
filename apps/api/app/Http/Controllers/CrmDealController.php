@@ -8,6 +8,7 @@ use App\Models\CrmDealEvent;
 use App\Models\CrmPipeline;
 use App\Models\CrmPipelineStage;
 use App\Support\AuditTrail;
+use App\Support\SubscriptionEntitlements;
 use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -60,6 +61,7 @@ final class CrmDealController
         $input = $request->validate($this->rules(false));
         $this->validateLinks($input);
         $deal = DB::transaction(function () use ($request, $context, $input): CrmDeal {
+            SubscriptionEntitlements::guardCreate($context->tenantId, 'deals');
             $deal = CrmDeal::forceCreate(array_merge($input, [
                 'organization_id' => $context->organizationId, 'version' => 1,
                 'amount' => $input['amount'] ?? 0,
