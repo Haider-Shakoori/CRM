@@ -65,6 +65,7 @@ final class StripeBillingTest extends TestCase
         return ['id' => $id, 'type' => $type, 'created' => $created, 'livemode' => false,
             'data' => ['object' => [
                 'id' => 'sub_test_x', 'customer' => 'cus_test_x', 'status' => $state,
+                'collection_method' => 'charge_automatically',
                 'metadata' => ['intent_id' => $intentId, 'tenant_id' => $tenantId],
                 'items' => ['data' => [[
                     'price' => ['id' => 'price_team_test'], 'current_period_end' => time() + 86400 * 30,
@@ -364,6 +365,29 @@ final class StripeBillingTest extends TestCase
         $this->postJson('/api/v1/organizations/billing/checkout', ['plan_code' => 'team'])
             ->assertOk()->assertJsonPath('data.checkout_pending', true);
         $this->assertDatabaseCount('crm_stripe_checkout_intents', 2);
+    }
+
+    public function test_send_invoice_cannot_activate_entitlements_without_payment_collection(): void
+    {
+        [$tenant] = $this->owner();
+        $this->configured();
+        $intent = (string) Str::uuid();
+        DB::table('crm_stripe_checkout_intents')->insert([
+            'id' => $intent, 'tenant_id' => $tenant->id,
+            'plan_id' => DB::table('crm_subscription_plans')->where('code', 'team')->value('id'),
+            'price_id' => 'price_team_test', 'status' => 'pending',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $event = $this->subscriptionEvent('evt_send_invoice', 'customer.subscription.created',
+            $intent, $tenant->id, time(), 'active');
+        $event['data']['object']['collection_method'] = 'send_invoice';
+        $this->postEvent($event)->assertOk()
+            ->assertJsonPath('data.handled', 'unsupported_collection_method');
+        $this->assertDatabaseCount('crm_stripe_subscription_links', 0);
+        $this->assertDatabaseHas('crm_tenant_subscriptions', [
+            'tenant_id' => $tenant->id,
+            'plan_id' => DB::table('crm_subscription_plans')->where('code', 'starter')->value('id'),
+        ]);
     }
 
 }
