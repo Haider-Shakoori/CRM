@@ -218,4 +218,44 @@ describe('Laravel browser client', () => {
     expect(init?.body).toBeUndefined();
   });
 
+  it('does not allow unscoped Lead conversion or forecasting', async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: fetcher });
+    await expect(api.convertLead('lead-1', { expected_version: 1, first_name: 'A', last_name: 'B', account_name: 'Acme' })).rejects.toBeInstanceOf(ApiError);
+    await expect(api.forecastReport()).rejects.toBeInstanceOf(ApiError);
+    await expect(api.updateStageProbability('pipe-1', 'stage-1', 40)).rejects.toBeInstanceOf(ApiError);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('submits Lead conversion as a CSRF-protected scoped mutation without ownership fields', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(success({ lead_id: 'lead-1', account_id: 'a', contact_id: 'c' }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-1', fetchImpl: fetcher,
+      getXsrfToken: () => 'xsrf' });
+    const result = await api.convertLead('lead-1', { expected_version: 2, first_name: 'Amina', last_name: 'Khan', account_name: 'Company' });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/leads/lead-1/convert');
+    expect(init?.method).toBe('POST');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-1');
+    expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('xsrf');
+    expect(JSON.parse(String(init?.body))).toEqual({ expected_version: 2, first_name: 'Amina', last_name: 'Khan', account_name: 'Company' });
+    expect(result.contact_id).toBe('c');
+  });
+  it('keeps forecasting dates and pipeline inside server-side scoped query', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(success({ currencies: [], assumptions: {} }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-1', fetchImpl: fetcher });
+    await api.forecastReport({ pipeline_id: 'pipe-1', close_from: '2026-11-01', close_to: '2026-12-01' });
+    expect(fetcher.mock.calls[0]![0]).toBe('https://api.example.test/api/v1/reports/forecast?pipeline_id=pipe-1&close_from=2026-11-01&close_to=2026-12-01');
+    expect(new Headers(fetcher.mock.calls[0]![1]?.headers).get('X-Organization-ID')).toBe('org-1');
+  });
+  it('updates probability using CSRF with an explicit stage path', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(success({ probability: 50 }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-1', fetchImpl: fetcher,
+      getXsrfToken: () => 'xsrf' });
+    await api.updateStageProbability('pipe-1', 'stage-2', 50);
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/pipelines/pipe-1/stages/stage-2/probability');
+    expect(init?.method).toBe('PATCH');
+    expect(JSON.parse(String(init?.body))).toEqual({ probability: 50 });
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-1');
+  });
+
 });
