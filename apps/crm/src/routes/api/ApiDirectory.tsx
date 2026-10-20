@@ -176,6 +176,7 @@ export default function ApiDirectory() {
       <Link className="underline" to="/crm/leads">Live Leads</Link>
       <Link className="underline" to="/crm/accounts">Live Accounts</Link>
       <Link className="underline" to="/crm/contacts">Live Contacts</Link>
+      <Link className="underline" to="/crm/deals">Live Deals</Link>
       <Link className="underline" to="/app/home">Demo CRM</Link>
       <button type="button" disabled={busy} className="ml-auto underline disabled:opacity-50" onClick={() => { void signOut(); }}>Sign out</button>
     </nav>
