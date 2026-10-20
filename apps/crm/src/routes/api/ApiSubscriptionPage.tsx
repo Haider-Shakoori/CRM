@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ApiError, createLaravelClient, type ApiIdentity, type ApiSubscriptionSnapshot, type CrmQuotaResource,
+  ApiError, createLaravelClient, type ApiIdentity, type ApiSubscriptionSnapshot, type ApiSubscriptionPlan, type CrmQuotaResource,
 } from '../../app/laravelClient';
 
 const labels: Record<CrmQuotaResource, string> = {
@@ -18,6 +18,10 @@ export default function ApiSubscriptionPage() {
   const [identity, setIdentity] = React.useState<ApiIdentity | null>(null);
   const [organizationId, setOrganizationId] = React.useState('');
   const [error, setError] = React.useState('');
+  const [billingError, setBillingError] = React.useState('');
+  const [billingBusy, setBillingBusy] = React.useState(false);
+  const [plans, setPlans] = React.useState<ApiSubscriptionPlan[]>([]);
+  const [chosenPlan, setChosenPlan] = React.useState('');
   const [revision, setRevision] = React.useState(0);
   const [snapshot, setSnapshot] = React.useState<{ organizationId: string; revision: number; data: ApiSubscriptionSnapshot } | null>(null);
   const client = React.useMemo(() =>
@@ -54,6 +58,41 @@ export default function ApiSubscriptionPage() {
     return () => { active = false; };
   }, [client, organizationId, canView, identity?.user.email_verified, navigate, revision]);
 
+  React.useEffect(() => {
+    if (!client || !organizationId || !canView || !current?.billing_connected || current.billing_linked) {
+      setPlans([]); setChosenPlan('');
+      return;
+    }
+    let active = true;
+    void client.subscriptionPlans().then((items) => {
+      if (!active) return;
+      const purchasable = items.filter((item) => item.checkout_available && item.code !== 'starter');
+      setPlans(purchasable);
+      setChosenPlan(purchasable[0]?.code ?? '');
+    }).catch((cause: unknown) => { if (active) setBillingError(message(cause)); });
+    return () => { active = false; };
+  }, [client, organizationId, canView, current?.billing_connected, current?.billing_linked]);
+
+  const goToStripe = async (mode: 'checkout' | 'portal') => {
+    if (!client || !current?.billing_connected || billingBusy || !canView) return;
+    if (mode === 'checkout' && (!chosenPlan || current.billing_linked)) return;
+    if (mode === 'portal' && !current.billing_linked) return;
+    setBillingBusy(true); setBillingError('');
+    try {
+      const result = mode === 'checkout'
+        ? (await client.stripeCheckout(chosenPlan)).checkout_url
+        : (await client.stripePortal()).portal_url;
+      const expectedHost = mode === 'checkout' ? 'checkout.stripe.com' : 'billing.stripe.com';
+      const destination = new URL(result);
+      if (destination.protocol !== 'https:' || destination.hostname !== expectedHost) {
+        throw new Error('Unexpected Stripe destination.');
+      }
+      window.location.assign(destination.href);
+    } catch (cause) {
+      setBillingError(message(cause)); setBillingBusy(false);
+    }
+  };
+
   return <main className="mx-auto max-w-5xl space-y-6 p-5 sm:p-8">
     <nav className="flex flex-wrap gap-4 text-sm">
       <Link className="underline" to="/crm/dashboard">Live Dashboard</Link>
@@ -64,7 +103,7 @@ export default function ApiSubscriptionPage() {
     <header className="space-y-2">
       <p className="text-xs uppercase tracking-wider text-muted">CRM / Organization / Entitlements</p>
       <h1 className="text-3xl font-bold">Subscription & Usage</h1>
-      <p className="text-sm text-muted">Real subscription state and quota usage from Laravel. This page does not collect payments or change plans.</p>
+      <p className="text-sm text-muted">Real subscription status from Laravel. Stripe checkout is shown only when a test integration is explicitly configured.</p>
     </header>
     {!baseUrl ? <p role="alert">Set VITE_CRM_API_URL to load subscription details.</p>
       : error ? <p role="alert">{error}</p>
@@ -117,6 +156,26 @@ export default function ApiSubscriptionPage() {
                           })}
                         </div>
                       </section>
+                      {current.billing_connected && <section className="space-y-3 rounded-xl border p-5" aria-label="Stripe test billing">
+                        <h2 className="text-xl font-semibold">Stripe billing (test mode)</h2>
+                        <p className="text-sm text-muted">Stripe test payments only. Returning from Checkout does not activate a subscription; only verified Stripe subscription webhooks can change access.</p>
+                        {billingError && <p role="alert" className="text-red-600">{billingError}</p>}
+                        {current.billing_linked
+                          ? <button type="button" disabled={billingBusy} className="rounded border px-4 py-2 disabled:opacity-50"
+                              onClick={() => { void goToStripe('portal'); }}>Open Stripe customer portal (test)</button>
+                          : plans.length ? <div className="flex flex-wrap items-end gap-3">
+                            <label className="text-sm">Published plan
+                              <select className="mt-1 block min-w-52 rounded border p-2" value={chosenPlan}
+                                onChange={(event) => setChosenPlan(event.target.value)}>
+                                {plans.map((plan) => <option key={plan.code} value={plan.code}>{plan.name}</option>)}
+                              </select>
+                            </label>
+                            <button type="button" disabled={!chosenPlan || billingBusy}
+                              className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-50"
+                              onClick={() => { void goToStripe('checkout'); }}>Open Stripe test Checkout</button>
+                          </div>
+                            : <p className="text-sm">No paid plans have been published with configured Stripe test Price IDs yet.</p>}
+                      </section>}
                       <button type="button" className="rounded border px-4 py-2" onClick={() => setRevision((value) => value + 1)}>
                         Refresh usage
                       </button>
