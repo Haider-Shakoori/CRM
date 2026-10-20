@@ -40,7 +40,7 @@ export default function ApiWorkspace() {
   const [newName, setNewName] = React.useState('');
   const [edit, setEdit] = React.useState<{ id: string; version: number; draft: EditDraft } | null>(null);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
-  const [convert, setConvert] = React.useState<{ id: string; version: number; email: string } | null>(null);
+  const [convert, setConvert] = React.useState<{ id: string; version: number; email: string; name: string } | null>(null);
   const [conversionResult, setConversionResult] = React.useState<ApiLeadConversion | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [actionError, setActionError] = React.useState('');
@@ -240,7 +240,7 @@ export default function ApiWorkspace() {
                                     {lead.status !== 'converted' && <button type="button" disabled={!canEdit || busy}
                                       className="underline disabled:opacity-50" onClick={() => {
                                         setEdit(null); setDeleteId(null); setConversionResult(null);
-                                        setConvert({ id: lead.id, version: lead.version, email: lead.email ?? '' });
+                                        setConvert({ id: lead.id, version: lead.version, email: lead.email ?? '', name: lead.name });
                                       }}>Convert</button>}
                                     <button type="button" disabled={!canEdit || busy || lead.status === 'converted'} className="underline disabled:opacity-50"
                                       onClick={() => { setEdit(null); setConvert(null); setDeleteId(lead.id); }}>Delete</button>
@@ -290,7 +290,7 @@ export default function ApiWorkspace() {
                     {convert && canEdit && client &&
                       <LeadConversionForm key={orgId + ':' + convert.id}
                         client={client}
-                        lead={{ id: convert.id, name: items.find((entry) => entry.id === convert.id)?.name ?? '',
+                        lead={{ id: convert.id, name: convert.name,
                           email: convert.email, version: convert.version }}
                         onCancel={() => setConvert(null)}
                         onConverted={(created) => {
