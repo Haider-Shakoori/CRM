@@ -43,8 +43,11 @@ final class CrmStripeBillingController
             }
             if (DB::table('crm_stripe_checkout_intents')
                 ->where('tenant_id', $context->tenantId)
-                ->where('created_at', '>', now()->subMinutes(30))
-                ->whereIn('status', ['created', 'pending', 'completed'])->exists()) {
+                ->where(function ($query) {
+                    $query->whereIn('status', ['pending', 'completed'])
+                        ->orWhere(fn ($recent) => $recent->where('status', 'created')
+                            ->where('created_at', '>', now()->subMinutes(15)));
+                })->exists()) {
                 StripeBilling::denied('checkout_pending', 'A checkout was recently started. Retry later if it was abandoned.');
             }
             $id = (string) Str::uuid();
