@@ -186,6 +186,40 @@ final class DealsPipelinesTest extends TestCase
         $this->assertDatabaseHas('audit_events', ['organization_id' => $org->id, 'action' => 'deal.archived']);
     }
 
+
+    public function test_linked_accounts_cannot_be_deleted_even_after_the_deal_is_archived(): void
+    {
+        $org = $this->organization('Alpha');
+        $this->actingAs($this->member($org))->withHeader('X-Organization-ID', $org->id);
+        $pipe = $this->pipeline('Sales');
+        $account = $this->postJson('/api/v1/accounts', ['name' => 'Customer'])
+            ->assertCreated()->json('data.id');
+        $deal = $this->postJson('/api/v1/deals', [
+            'name' => 'Contract', 'pipeline_id' => $pipe['id'],
+            'stage_id' => $pipe['stages'][0]['id'], 'account_id' => $account,
+        ])->assertCreated()->json('data.id');
+        $this->deleteJson('/api/v1/accounts/'.$account)->assertStatus(409);
+        $this->deleteJson('/api/v1/deals/'.$deal)->assertOk();
+        $this->deleteJson('/api/v1/accounts/'.$account)->assertStatus(409);
+        $this->assertDatabaseHas('crm_deal_events', ['deal_id' => $deal, 'action' => 'archived']);
+    }
+
+    public function test_custom_stage_is_created_in_selected_pipeline_and_audited(): void
+    {
+        $org = $this->organization('Alpha');
+        $this->actingAs($this->member($org))->withHeader('X-Organization-ID', $org->id);
+        $pipe = $this->pipeline('Sales');
+        $stage = $this->postJson('/api/v1/pipelines/'.$pipe['id'].'/stages', [
+            'name' => 'Negotiation', 'kind' => 'open',
+        ])->assertCreated()->assertJsonPath('data.position', 6)
+          ->assertJsonPath('data.pipeline_id', $pipe['id']);
+        $this->getJson('/api/v1/pipelines/'.$pipe['id'])->assertJsonCount(6, 'data.stages');
+        $this->assertDatabaseHas('audit_events', [
+            'organization_id' => $org->id, 'action' => 'pipeline.stage_created',
+            'subject_id' => $stage->json('data.id'),
+        ]);
+    }
+
     public function test_background_queries_fail_closed_without_context(): void
     {
         $this->assertSame(0, CrmDeal::query()->count());
