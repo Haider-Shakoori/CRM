@@ -8,8 +8,8 @@ const ok = (data: unknown) => new Response(JSON.stringify({ ok: true, data }), {
   status: 200, headers: { 'Content-Type': 'application/json' },
 });
 
-afterEach(() => { vi.unstubAllGlobals(); });
-beforeEach(() => { sessionStorage.clear(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+beforeEach(() => { sessionStorage.clear(); vi.stubEnv('VITE_CRM_API_URL', 'https://api.example.test'); });
 
 describe('Live CRM calendar', () => {
   it('loads only the selected organization date window, never mock events', async () => {
