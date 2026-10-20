@@ -195,6 +195,9 @@ export default function Home() {
         }
         actions={
           <>
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/crm/dashboard">Live CRM Dashboard (Laravel)</Link>
+            </Button>
             <Button
               variant={editing ? 'primary' : 'secondary'}
               size="sm"
