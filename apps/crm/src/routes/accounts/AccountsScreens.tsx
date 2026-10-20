@@ -392,9 +392,14 @@ export default function AccountsList() {
         title="Accounts"
         description="The organizations you sell to and support, with a health score derived from usage, support and relationship signals."
         actions={
-          <Button variant="primary" size="sm" asChild>
-            <Link to="/app/accounts/new">New account</Link>
-          </Button>
+          <>
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/crm/accounts">Live Accounts (Laravel)</Link>
+            </Button>
+            <Button variant="primary" size="sm" asChild>
+              <Link to="/app/accounts/new">New account</Link>
+            </Button>
+          </>
         }
       />
 
