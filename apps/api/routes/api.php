@@ -8,6 +8,8 @@ use App\Http\Controllers\CrmPipelineController;
 use App\Http\Controllers\CrmDealController;
 use App\Http\Controllers\CrmActivityController;
 use App\Http\Controllers\CrmReportingController;
+use App\Http\Controllers\CrmForecastController;
+use App\Http\Controllers\CrmLeadConversionController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\AuditController;
 use Illuminate\Http\Request;
@@ -37,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
         });
         Route::get('/reports/overview', [CrmReportingController::class, 'overview']);
         Route::get('/reports/pipelines', [CrmReportingController::class, 'pipelines']);
+        Route::get('/reports/forecast', [CrmForecastController::class, 'index']);
         Route::get('/accounts', [CrmAccountController::class, 'index']);
         Route::get('/accounts/{id}', [CrmAccountController::class, 'show'])->whereUuid('id');
         Route::get('/contacts', [CrmContactController::class, 'index']);
@@ -52,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/activities/{id}/events', [CrmActivityController::class, 'events'])->whereUuid('id');
         Route::get('/leads', [LeadController::class, 'index']);
         Route::get('/leads/{id}', [LeadController::class, 'show'])->whereUuid('id');
+        Route::get('/leads/{id}/conversion', [CrmLeadConversionController::class, 'show'])->whereUuid('id');
         Route::middleware('organization.write')->group(function () {
             Route::post('/accounts', [CrmAccountController::class, 'store']);
             Route::patch('/accounts/{id}', [CrmAccountController::class, 'update'])->whereUuid('id');
@@ -68,6 +72,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/activities', [CrmActivityController::class, 'store']);
             Route::patch('/activities/{id}', [CrmActivityController::class, 'update'])->whereUuid('id');
             Route::delete('/activities/{id}', [CrmActivityController::class, 'destroy'])->whereUuid('id');
+            Route::post('/leads/{id}/convert', [CrmLeadConversionController::class, 'store'])->whereUuid('id');
+            Route::patch('/pipelines/{id}/stages/{stageId}/probability', [CrmPipelineController::class, 'updateStageProbability'])->whereUuid('id')->whereUuid('stageId');
             Route::post('/leads', [LeadController::class, 'store']);
             Route::patch('/leads/{id}', [LeadController::class, 'update'])->whereUuid('id');
             Route::put('/leads/{id}', [LeadController::class, 'update'])->whereUuid('id');
