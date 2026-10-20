@@ -14,7 +14,7 @@ describe('Laravel browser client', () => {
     const api = createLaravelClient({ baseUrl: 'https://api.example.test/', organizationId: 'org-1', fetchImpl: mock });
     await api.listLeads({ page: 2, q: 'test lead' });
     expect(mock).toHaveBeenCalledOnce();
-    const [url, init] = mock.mock.calls[0];
+    const [url, init] = mock.mock.calls[0]!;
     expect(url).toBe('https://api.example.test/api/v1/leads?page=2&q=test+lead');
     expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-1');
     expect(init?.credentials).toBe('include');
@@ -23,7 +23,7 @@ describe('Laravel browser client', () => {
     const mock = vi.fn<typeof fetch>().mockResolvedValue(success({ id: 'lead-1', version: 3 }));
     const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-1', fetchImpl: mock, getXsrfToken: () => 'decoded-token' });
     await api.updateLead('lead-1', { expected_version: 2, name: 'New name' });
-    const [, init] = mock.mock.calls[0];
+    const [, init] = mock.mock.calls[0]!;
     expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('decoded-token');
     expect(JSON.parse(String(init?.body))).toEqual({ expected_version: 2, name: 'New name' });
     expect(init?.method).toBe('PATCH');
