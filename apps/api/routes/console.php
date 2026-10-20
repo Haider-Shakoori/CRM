@@ -8,7 +8,7 @@ Artisan::command('crm:health', function () {
 
 
 // Restricted server-side operator workflow. No browser endpoint can mutate plans.
-Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code} {status : active|trialing|past_due|canceled|expired} {--ends= : Period end ISO date or "none"} {--cancel-at-period-end} {--version= : Expected current subscription version}', function () {
+Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code} {status : active|trialing|past_due|canceled|expired} {--ends= : Period end ISO date or "none"} {--cancel-at-period-end} {--expected-version= : Expected current subscription version}', function () {
     $tenantId = (string) $this->argument('tenant');
     $code = (string) $this->argument('plan');
     $status = (string) $this->argument('status');
@@ -28,7 +28,7 @@ Artisan::command('crm:subscription:set {tenant : Tenant UUID} {plan : Plan code}
         if ($status === 'trialing' && !$ends) {
             $this->error('Trialing subscriptions require --ends.'); return 1;
         }
-        $expectedVersion = $this->option('version');
+        $expectedVersion = $this->option('expected-version');
         if ($expectedVersion !== null && (!ctype_digit((string) $expectedVersion) || (int) $expectedVersion < 1)) {
             $this->error('Version must be a positive integer.'); return 1;
         }
