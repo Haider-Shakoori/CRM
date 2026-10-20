@@ -56,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/leads', [LeadController::class, 'index']);
         Route::get('/leads/{id}', [LeadController::class, 'show'])->whereUuid('id');
         Route::get('/leads/{id}/conversion', [CrmLeadConversionController::class, 'show'])->whereUuid('id');
+        Route::get('/leads/{id}/matches', [CrmLeadConversionController::class, 'matches'])->whereUuid('id');
         Route::middleware('organization.write')->group(function () {
             Route::post('/accounts', [CrmAccountController::class, 'store']);
             Route::patch('/accounts/{id}', [CrmAccountController::class, 'update'])->whereUuid('id');
