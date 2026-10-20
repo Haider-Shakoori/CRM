@@ -122,6 +122,7 @@ export default function ApiReportingDashboard() {
       <Link className="underline" to="/crm/contacts">Contacts</Link>
       <Link className="underline" to="/crm/deals">Deals</Link>
       <Link className="underline" to="/crm/my-work">My Work</Link>
+      <Link className="underline" to="/crm/subscription">Subscription & Usage</Link>
       <Link className="underline" to="/app/home">Demo dashboard</Link>
       <button type="button" disabled={busy} onClick={() => { void signOut(); }}
         className="ml-auto underline disabled:opacity-50">Sign out</button>
