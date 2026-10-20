@@ -1,3 +1,4 @@
+import { isLiveCrmMode } from '../../app/LiveRouteBridge';
 import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 import * as React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -212,7 +213,7 @@ export default function ApiDeals() {
       <Link to="/crm/accounts" className="underline">Live Accounts</Link>
       <Link to="/crm/contacts" className="underline">Live Contacts</Link>
       <Link to="/crm/my-work" className="underline">Live My Work</Link>
-      <Link to="/app/deals" className="underline">Demo Deals</Link>
+      {!isLiveCrmMode && <Link to="/app/deals" className="underline">Demo Deals</Link>}
       <button type="button" disabled={busy} className="ml-auto underline" onClick={() => { void signOut(); }}>Sign out</button>
     </nav>
     <header>
