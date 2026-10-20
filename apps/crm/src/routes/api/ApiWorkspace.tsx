@@ -8,6 +8,7 @@ import {
   type ApiLead,
   type ApiLeadStatus,
   type ApiPage,
+  type ApiLeadConversion,
 } from '../../app/laravelClient';
 
 type ListState = { key: string; items: ApiLead[]; meta?: ApiPage<ApiLead>['meta']; error?: string };
@@ -38,6 +39,9 @@ export default function ApiWorkspace() {
   const [newName, setNewName] = React.useState('');
   const [edit, setEdit] = React.useState<{ id: string; version: number; draft: EditDraft } | null>(null);
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
+  const [convert, setConvert] = React.useState<{ id: string; version: number; email: string } | null>(null);
+  const [conversionDraft, setConversionDraft] = React.useState({ first_name: '', last_name: '', account_name: '' });
+  const [conversionResult, setConversionResult] = React.useState<ApiLeadConversion | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [actionError, setActionError] = React.useState('');
   const [notice, setNotice] = React.useState('');
@@ -113,7 +117,7 @@ export default function ApiWorkspace() {
         expected_version: version, name: draft.name.trim(), email: draft.email.trim() || null,
         notes: draft.notes.trim() || null, status: draft.status,
       });
-      setEdit(null); refresh(); setNotice('Lead saved.');
+      setEdit(null); setConversionResult(null); refresh(); setNotice('Lead saved.');
     } catch (cause) {
       handleError(cause, 'Could not save changes.');
       if (cause instanceof ApiError && cause.status === 409) {
@@ -128,9 +132,31 @@ export default function ApiWorkspace() {
     setBusy(true); setActionError(''); setNotice('');
     try {
       await client.deleteLead(deleteId);
-      setDeleteId(null); setEdit(null); refresh(); setNotice('Lead deleted.');
+      setDeleteId(null); setEdit(null); setConversionResult(null); refresh(); setNotice('Lead deleted.');
     } catch (cause) { handleError(cause, 'Could not delete lead.'); }
     finally { setBusy(false); }
+  };
+  const submitConversion = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!client || !canEdit || !convert || busy) return;
+    setBusy(true); setActionError(''); setNotice(''); setConversionResult(null);
+    try {
+      const created = await client.convertLead(convert.id, {
+        expected_version: convert.version,
+        first_name: conversionDraft.first_name.trim(),
+        last_name: conversionDraft.last_name.trim(),
+        account_name: conversionDraft.account_name.trim(),
+      });
+      setConversionResult(created);
+      setConvert(null); setEdit(null); setDeleteId(null); refresh();
+      setNotice('Lead converted to a Contact and Account. Conversion history retained.');
+    } catch (cause) {
+      handleError(cause, 'Could not convert Lead.');
+      if (cause instanceof ApiError && cause.status === 409) {
+        setConvert(null); refresh();
+        setNotice('Lead was updated elsewhere. Refresh it before trying again.');
+      }
+    } finally { setBusy(false); }
   };
   const resendVerification = async () => {
     if (!authClient || busy) return;
@@ -229,11 +255,18 @@ export default function ApiWorkspace() {
                                   <td className="p-3">{lead.name}</td><td className="p-3">{lead.status}</td>
                                   <td className="p-3">{lead.email ?? '—'}</td><td className="p-3">{lead.version}</td>
                                   <td className="p-3 space-x-3">
-                                    <button type="button" disabled={!canEdit || busy} className="underline disabled:opacity-50"
-                                      onClick={() => { setDeleteId(null); setEdit({ id: lead.id, version: lead.version,
+                                    <button type="button" disabled={!canEdit || busy || lead.status === 'converted'} className="underline disabled:opacity-50"
+                                      onClick={() => { setDeleteId(null); setConvert(null); setEdit({ id: lead.id, version: lead.version,
                                         draft: { name: lead.name, email: lead.email ?? '', status: lead.status, notes: lead.notes ?? '' } }); }}>Edit</button>
-                                    <button type="button" disabled={!canEdit || busy} className="underline disabled:opacity-50"
-                                      onClick={() => { setEdit(null); setDeleteId(lead.id); }}>Delete</button>
+                                    {lead.status !== 'converted' && <button type="button" disabled={!canEdit || busy}
+                                      className="underline disabled:opacity-50" onClick={() => {
+                                        setEdit(null); setDeleteId(null); setConversionResult(null);
+                                        const [first, ...last] = lead.name.trim().split(/\s+/);
+                                        setConversionDraft({ first_name: first ?? '', last_name: last.join(' '), account_name: '' });
+                                        setConvert({ id: lead.id, version: lead.version, email: lead.email ?? '' });
+                                      }}>Convert</button>}
+                                    <button type="button" disabled={!canEdit || busy || lead.status === 'converted'} className="underline disabled:opacity-50"
+                                      onClick={() => { setEdit(null); setConvert(null); setDeleteId(lead.id); }}>Delete</button>
                                   </td>
                                 </tr>
                               ))}</tbody>
@@ -259,7 +292,7 @@ export default function ApiWorkspace() {
                           value={edit.draft.email} onChange={(event) => setEdit((previous) => previous ? { ...previous, draft: { ...previous.draft, email: event.target.value } } : null)} /></label>
                         <label className="block">Status <select className="block w-full rounded border p-2" value={edit.draft.status}
                           onChange={(event) => setEdit((previous) => previous ? { ...previous, draft: { ...previous.draft, status: event.target.value as ApiLeadStatus } } : null)}>
-                          {LEAD_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+                          {LEAD_STATUSES.filter((status) => status !== 'converted').map((status) => <option key={status} value={status}>{status}</option>)}
                         </select></label>
                         <label className="block">Notes <textarea className="block w-full rounded border p-2"
                           value={edit.draft.notes} onChange={(event) => setEdit((previous) => previous ? { ...previous, draft: { ...previous.draft, notes: event.target.value } } : null)} /></label>
@@ -269,6 +302,35 @@ export default function ApiWorkspace() {
                         </div>
                       </form>
                     )}
+                    {conversionResult && <section className="space-y-2 rounded border p-4" role="status">
+                      <p className="font-medium">Conversion successful</p>
+                      <div className="flex gap-3 text-sm">
+                        <Link className="underline" to="/crm/contacts">View Contacts</Link>
+                        <Link className="underline" to="/crm/accounts">View Accounts</Link>
+                      </div>
+                    </section>}
+                    {convert && canEdit && <form aria-label="Convert lead to contact and account"
+                      className="space-y-3 rounded border p-4" onSubmit={(event) => { void submitConversion(event); }}>
+                      <h2 className="font-semibold">Convert Lead</h2>
+                      <p className="text-sm text-muted">Creates a new Account and Contact; keeps the Lead for conversion history. No Deal is created automatically.</p>
+                      <label className="block text-sm">First name
+                        <input required maxLength={120} value={conversionDraft.first_name} className="block w-full rounded border p-2"
+                          onChange={(event) => setConversionDraft((p) => ({ ...p, first_name: event.target.value }))}/>
+                      </label>
+                      <label className="block text-sm">Last name
+                        <input required maxLength={120} value={conversionDraft.last_name} className="block w-full rounded border p-2"
+                          onChange={(event) => setConversionDraft((p) => ({ ...p, last_name: event.target.value }))}/>
+                      </label>
+                      <label className="block text-sm">New Account name
+                        <input required maxLength={200} value={conversionDraft.account_name} className="block w-full rounded border p-2"
+                          onChange={(event) => setConversionDraft((p) => ({ ...p, account_name: event.target.value }))}/>
+                      </label>
+                      <p className="text-xs text-muted">Contact email: {convert.email || 'Not specified'}</p>
+                      <div className="flex gap-3">
+                        <button type="submit" disabled={busy} className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-50">Confirm conversion</button>
+                        <button type="button" className="rounded border px-4 py-2" onClick={() => setConvert(null)}>Cancel</button>
+                      </div>
+                    </form>}
                     {deleteId && canEdit && (
                       <div className="space-y-2 rounded border p-4" role="group" aria-label="Confirm lead deletion">
                         <p>Delete this lead permanently?</p>
