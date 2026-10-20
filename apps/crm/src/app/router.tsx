@@ -74,6 +74,8 @@ const notBuilt = (title: string, moduleKey: string, description: string) => plac
 
 export const routes: RouteObject[] = [
   { path: '/', element: <Navigate to="/app/home" replace /> },
+  { path: '/api-sign-in', element: lazyScreen(() => import('../routes/api/ApiSignIn')) },
+  { path: '/api-workspace', element: lazyScreen(() => import('../routes/api/ApiWorkspace')) },
   {
     path: '/app',
     element: <AppShell />,
