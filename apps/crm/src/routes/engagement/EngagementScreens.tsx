@@ -204,9 +204,12 @@ export default function ActivitiesList() {
         description="Every logged call, email, meeting, note and task on a record, with the record links preserved."
         breadcrumbs={[{ label: 'Home', to: '/app/home' }, { label: 'Activities' }]}
         actions={
-          <Button variant="secondary" size="sm" asChild>
-            <Link to="/app/tasks">Tasks</Link>
-          </Button>
+          <>
+            <Button variant="secondary" size="sm" asChild><Link to="/crm/activities">Live Activities (Laravel)</Link></Button>
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/app/tasks">Tasks</Link>
+            </Button>
+          </>
         }
         footer={
           <FilterBar

@@ -6,6 +6,7 @@ use App\Http\Controllers\CrmAccountController;
 use App\Http\Controllers\CrmContactController;
 use App\Http\Controllers\CrmPipelineController;
 use App\Http\Controllers\CrmDealController;
+use App\Http\Controllers\CrmActivityController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\AuditController;
 use Illuminate\Http\Request;
@@ -42,6 +43,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/deals', [CrmDealController::class, 'index']);
         Route::get('/deals/{id}', [CrmDealController::class, 'show'])->whereUuid('id');
         Route::get('/deals/{id}/events', [CrmDealController::class, 'events'])->whereUuid('id');
+        Route::get('/activities/assignees', [CrmActivityController::class, 'assignees']);
+        Route::get('/activities', [CrmActivityController::class, 'index']);
+        Route::get('/activities/{id}', [CrmActivityController::class, 'show'])->whereUuid('id');
+        Route::get('/activities/{id}/events', [CrmActivityController::class, 'events'])->whereUuid('id');
         Route::get('/leads', [LeadController::class, 'index']);
         Route::get('/leads/{id}', [LeadController::class, 'show'])->whereUuid('id');
         Route::middleware('organization.write')->group(function () {
@@ -57,6 +62,9 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('/deals/{id}', [CrmDealController::class, 'update'])->whereUuid('id');
             Route::post('/deals/{id}/move', [CrmDealController::class, 'move'])->whereUuid('id');
             Route::delete('/deals/{id}', [CrmDealController::class, 'destroy'])->whereUuid('id');
+            Route::post('/activities', [CrmActivityController::class, 'store']);
+            Route::patch('/activities/{id}', [CrmActivityController::class, 'update'])->whereUuid('id');
+            Route::delete('/activities/{id}', [CrmActivityController::class, 'destroy'])->whereUuid('id');
             Route::post('/leads', [LeadController::class, 'store']);
             Route::patch('/leads/{id}', [LeadController::class, 'update'])->whereUuid('id');
             Route::put('/leads/{id}', [LeadController::class, 'update'])->whereUuid('id');

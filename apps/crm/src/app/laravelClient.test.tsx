@@ -159,4 +159,37 @@ describe('Laravel browser client', () => {
     expect(result.meta.hasPrev).toBe(true);
   });
 
+  it('requires organization membership context for activity and assignee reads', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(client.listActivities()).rejects.toBeInstanceOf(ApiError);
+    await expect(client.listAssignees()).rejects.toBeInstanceOf(ApiError);
+    await expect(client.getActivityEvents('activity-1')).rejects.toBeInstanceOf(ApiError);
+    await expect(client.archiveActivity('activity-1')).rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('sends scoped activity filters and server pagination', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({
+      items: [], meta: { page: 2, pageSize: 25, total: 60, totalPages: 3, hasNext: true, hasPrev: true },
+    }));
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-4', fetchImpl: mock });
+    const page = await client.listActivities({ page: 2, pageSize: 25, kind: 'task', status: 'open', mine: true });
+    expect(mock.mock.calls[0]![0]).toBe('https://api.example.test/api/v1/activities?page=2&pageSize=25&kind=task&status=open&mine=1');
+    expect(new Headers(mock.mock.calls[0]![1]?.headers).get('X-Organization-ID')).toBe('org-4');
+    expect(page.meta.totalPages).toBe(3);
+  });
+  it('includes CSRF and expected version for completing a task', async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({ id: 'activity-1', status: 'completed', version: 2 }));
+    const client = createLaravelClient({
+      baseUrl: 'https://api.example.test', organizationId: 'org-4', fetchImpl: mock,
+      getXsrfToken: () => 'my-xsrf',
+    });
+    await client.updateActivity('activity-1', { status: 'completed', expected_version: 1 });
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/activities/activity-1');
+    expect(init?.method).toBe('PATCH');
+    expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('my-xsrf');
+    expect(JSON.parse(String(init?.body))).toEqual({ status: 'completed', expected_version: 1 });
+  });
+
 });

@@ -93,3 +93,20 @@ test('demo Deals links into the real authenticated pipeline board without backen
   await expect(page.getByRole('link', { name: 'Demo Deals' })).toHaveAttribute('href', '/app/deals');
   expect(errors).toEqual([]);
 });
+
+test('demo productivity pages clearly link to separate Laravel-backed Activities and Tasks', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  for (const [source, link, target, heading] of [
+    ['/app/activities', 'Live My Work (Laravel)', '/crm/my-work', 'My Work'],
+    ['/app/tasks', 'Live Tasks (Laravel)', '/crm/tasks', 'Tasks'],
+    ['/app/activities/all', 'Live Activities (Laravel)', '/crm/activities', 'Activities'],
+  ] as const) {
+    await page.goto('http://127.0.0.1:5173' + source);
+    await page.getByRole('link', { name: link }).click();
+    await expect(page).toHaveURL(new RegExp(target.replace(/\//g, '\\/') + '$'));
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText('VITE_CRM_API_URL');
+  }
+  expect(errors).toEqual([]);
+});

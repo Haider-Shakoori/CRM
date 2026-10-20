@@ -122,6 +122,56 @@ export type DealInput = {
   notes?: string | null;
 };
 
+
+export type ApiActivityKind = 'task' | 'call' | 'meeting';
+export type ApiActivityStatus = 'open' | 'completed' | 'cancelled';
+export interface ApiActivity {
+  id: string;
+  organization_id: string;
+  title: string;
+  kind: ApiActivityKind;
+  status: ApiActivityStatus;
+  notes: string | null;
+  due_at: string | null;
+  remind_at: string | null;
+  completed_at: string | null;
+  assigned_to: string;
+  lead_id: string | null;
+  contact_id: string | null;
+  account_id: string | null;
+  deal_id: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+export interface ApiAssignee {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+export interface ApiActivityEvent {
+  id: string;
+  activity_id: string;
+  actor_user_id: string;
+  action: 'created' | 'updated' | 'status_changed' | 'archived';
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+export type ActivityInput = {
+  title: string;
+  kind: ApiActivityKind;
+  status?: ApiActivityStatus;
+  notes?: string | null;
+  due_at?: string | null;
+  remind_at?: string | null;
+  assigned_to?: string;
+  lead_id?: string | null;
+  contact_id?: string | null;
+  account_id?: string | null;
+  deal_id?: string | null;
+};
+
 export interface ApiPage<T> {
   items: T[];
   meta: { page: number; pageSize: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
@@ -245,6 +295,25 @@ export function createLaravelClient(options: ApiOptions) {
         { method: 'POST', body: JSON.stringify({ stage_id: stageId, expected_version: expectedVersion }) }, true),
     archiveDeal: (id: string) => request<{ id: string }>('/api/v1/deals/' + encodeURIComponent(id),
       { method: 'DELETE' }, true),
+    listAssignees: () => request<ApiAssignee[]>('/api/v1/activities/assignees', {}, true),
+    listActivities: (params: { page?: number; pageSize?: number; q?: string; kind?: ApiActivityKind;
+      status?: ApiActivityStatus; assigned_to?: string; mine?: boolean; due_before?: string } = {}) => {
+      const search = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== '') search.set(key, typeof value === 'boolean' ? (value ? '1' : '0') : String(value));
+      }
+      return request<ApiPage<ApiActivity>>('/api/v1/activities' + (search.size ? '?' + search.toString() : ''), {}, true);
+    },
+    getActivity: (id: string) => request<ApiActivity>('/api/v1/activities/' + encodeURIComponent(id), {}, true),
+    getActivityEvents: (id: string) => request<ApiActivityEvent[]>('/api/v1/activities/' + encodeURIComponent(id) + '/events', {}, true),
+    createActivity: (input: ActivityInput) =>
+      request<ApiActivity>('/api/v1/activities', { method: 'POST', body: JSON.stringify(input) }, true),
+    updateActivity: (id: string, patch: Partial<ActivityInput> & { expected_version: number }) =>
+      request<ApiActivity>('/api/v1/activities/' + encodeURIComponent(id),
+        { method: 'PATCH', body: JSON.stringify(patch) }, true),
+    archiveActivity: (id: string) => request<{ id: string }>('/api/v1/activities/' + encodeURIComponent(id),
+      { method: 'DELETE' }, true),
+
 
 
   };

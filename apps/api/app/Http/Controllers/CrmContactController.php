@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CrmActivity;
+
 use App\Models\CrmAccount;
 use App\Models\CrmContact;
 use App\Support\AuditTrail;
@@ -86,6 +88,12 @@ final class CrmContactController
     {
         return DB::transaction(function () use ($request, $id): JsonResponse {
             $contact = CrmContact::query()->findOrFail($id);
+            if (CrmActivity::withTrashed()->where('contact_id', $id)->exists()) {
+                return response()->json(['ok' => false, 'error' => [
+                    'code' => 'conflict', 'message' => 'Unlink linked activities before deleting this contact.',
+                    'retryable' => false,
+                ]], 409);
+            }
             $contact->delete();
             AuditTrail::current($request, 'contact.deleted', 'contact', $id);
             return response()->json(['ok' => true, 'data' => ['id' => $id]]);

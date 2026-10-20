@@ -144,6 +144,7 @@ export default function MyWork() {
         breadcrumbs={[{ label: 'Home', to: '/app/home' }, { label: 'My work' }]}
         actions={
           <>
+            <Button variant="secondary" size="sm" asChild><Link to="/crm/my-work">Live My Work (Laravel)</Link></Button>
             <Button variant="primary" size="sm" leadingIcon={<Plus className="size-3.5" />} onClick={() => setComposeOpen(true)}>
               New task
             </Button>

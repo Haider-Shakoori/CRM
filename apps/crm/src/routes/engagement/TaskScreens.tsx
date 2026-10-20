@@ -488,6 +488,7 @@ export default function TaskList() {
         breadcrumbs={[{ label: 'Home', to: '/app/home' }, { label: 'My Work', to: '/app/activities' }, { label: 'Tasks' }]}
         actions={
           <>
+            <Button variant="secondary" size="sm" asChild><Link to="/crm/tasks">Live Tasks (Laravel)</Link></Button>
             <Button variant="secondary" size="sm" asChild>
               <Link to="/app/activities/all">Activities</Link>
             </Button>
