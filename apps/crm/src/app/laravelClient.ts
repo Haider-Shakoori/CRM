@@ -45,7 +45,13 @@ export interface ApiLeadConversion {
   account_id: string;
   contact_id: string;
   converted_by: string;
+  deal_id: string | null;
   created_at: string;
+}
+export interface ApiLeadMatches {
+  contact_email_matches: Array<{ id: string; first_name: string; last_name: string; email: string; account_id: string | null }>;
+  lead_email_matches: Array<{ id: string; name: string; email: string; status: string }>;
+  match_rule: string;
 }
 export type LeadConversionInput = {
   expected_version: number;
@@ -54,6 +60,15 @@ export type LeadConversionInput = {
   email?: string | null;
   account_id?: string;
   account_name?: string;
+  allow_duplicate_contact?: boolean;
+  deal?: {
+    name: string;
+    pipeline_id: string;
+    stage_id: string;
+    amount?: number;
+    currency?: string;
+    expected_close_date?: string | null;
+  };
 };
 export interface ApiForecastReport {
   currencies: Array<{
@@ -312,6 +327,7 @@ export function createLaravelClient(options: ApiOptions) {
       request<ApiLeadConversion>('/api/v1/leads/' + encodeURIComponent(id) + '/convert', { method: 'POST', body: JSON.stringify(input) }, true),
     getLeadConversion: (id: string) =>
       request<ApiLeadConversion>('/api/v1/leads/' + encodeURIComponent(id) + '/conversion', {}, true),
+    leadMatches: (id: string) => request<ApiLeadMatches>('/api/v1/leads/' + encodeURIComponent(id) + '/matches', {}, true),
     listAccounts: (params: { page?: number; pageSize?: number; q?: string } = {}) => {
       const search = new URLSearchParams();
       for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value));
