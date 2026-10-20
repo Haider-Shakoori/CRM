@@ -135,9 +135,10 @@ final class PlatformOperatorTest extends TestCase
             'email' => $unverified->email, 'role' => 'operator',
         ]));
         $verified = $this->user();
-        $this->assertSame(0, Artisan::call('crm:platform:grant', [
+        $result = Artisan::call('crm:platform:grant', [
             'email' => $verified->email, 'role' => 'operator',
-        ]));
+        ]);
+        $this->assertSame(0, $result, Artisan::output());
         $this->actingAs($verified);
         $this->getJson('/api/v1/platform/me')->assertOk();
         $this->assertSame(0, Artisan::call('crm:platform:revoke', [
