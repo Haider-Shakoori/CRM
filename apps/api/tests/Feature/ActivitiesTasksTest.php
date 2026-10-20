@@ -197,6 +197,30 @@ final class ActivitiesTasksTest extends TestCase
         $this->assertDatabaseHas('crm_activity_events', ['activity_id' => $id, 'action' => 'archived']);
     }
 
+
+    public function test_linked_records_return_conflicts_before_deletion_even_after_activity_archive(): void
+    {
+        $org = $this->org('Alpha');
+        $this->actingAs($this->member($org))->withHeader('X-Organization-ID', $org->id);
+        $lead = $this->postJson('/api/v1/leads', ['name' => 'Lead'])->assertCreated()->json('data.id');
+        $contact = $this->postJson('/api/v1/contacts', [
+            'first_name' => 'Amina', 'last_name' => 'Khan',
+        ])->assertCreated()->json('data.id');
+        $account = $this->postJson('/api/v1/accounts', ['name' => 'Customer'])->assertCreated()->json('data.id');
+        foreach ([
+            ['lead_id', $lead, 'leads'],
+            ['contact_id', $contact, 'contacts'],
+            ['account_id', $account, 'accounts'],
+        ] as [$column, $record, $route]) {
+            $activity = $this->postJson('/api/v1/activities', [
+                'title' => 'Linked to '. $route, 'kind' => 'task', $column => $record,
+            ])->assertCreated()->json('data.id');
+            $this->deleteJson('/api/v1/'.$route.'/'.$record)->assertStatus(409);
+            $this->deleteJson('/api/v1/activities/'.$activity)->assertOk();
+            $this->deleteJson('/api/v1/'.$route.'/'.$record)->assertStatus(409);
+        }
+    }
+
     public function test_queries_fail_closed_without_organization_context(): void
     {
         $this->assertSame(0, CrmActivity::query()->count());
