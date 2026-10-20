@@ -34,4 +34,38 @@ describe('Lead conversion form', () => {
     expect(payload.allow_duplicate_contact).toBe(true);
     expect(payload.account_name).toBe('Unique Account');
   });
+  it('chooses an existing Account and creates an optional Deal', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      const path = String(url);
+      if (path.endsWith('/matches')) return success({ contact_email_matches: [], lead_email_matches: [], match_rule: 'exact email' });
+      if (path.endsWith('/pipelines')) return success([{ id: 'p1', name: 'Sales',
+        stages: [{ id: 's1', name: 'Prospecting', kind: 'open', probability: 10, position: 1 }] }]);
+      if (path.includes('/accounts?')) return success({ items: [{ id: 'a1', name: 'Existing' }], meta: { total: 1 } });
+      if (path.endsWith('/convert')) return success({ id: 'converted', account_id: 'a1', contact_id: 'c1', deal_id: 'd1' });
+      throw new Error('Unexpected request: ' + path);
+    });
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-1', fetchImpl: fetcher });
+    const done = vi.fn();
+    const user = userEvent.setup();
+    render(<LeadConversionForm client={client}
+      lead={{ id: 'l1', name: 'New Person', email: 'unique@example.test', version: 2 }}
+      onConverted={done} onCancel={vi.fn()} />);
+    await screen.findByText(/No existing Contacts or other Leads/);
+    await user.click(screen.getByLabelText('Use existing Account'));
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByRole('option', { name: 'Existing' });
+    await user.selectOptions(screen.getByLabelText('Account', { exact: true }), 'a1');
+    await user.click(screen.getByRole('checkbox', { name: /Create a Deal linked/ }));
+    await user.selectOptions(screen.getByLabelText('Pipeline', { exact: true }), 'p1');
+    await user.selectOptions(screen.getByLabelText('Stage', { exact: true }), 's1');
+    await user.click(screen.getByRole('button', { name: 'Confirm conversion' }));
+    await waitFor(() => expect(done).toHaveBeenCalledTimes(1));
+    const payload = JSON.parse(String(fetcher.mock.calls.find(([url]) => String(url).endsWith('/convert'))?.[1]?.body));
+    expect(payload.account_id).toBe('a1');
+    expect(payload.account_name).toBeUndefined();
+    expect(payload.deal.pipeline_id).toBe('p1');
+    expect(payload.deal.stage_id).toBe('s1');
+    expect(payload.allow_duplicate_contact).toBeUndefined();
+  });
+
 });
