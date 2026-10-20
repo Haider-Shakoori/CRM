@@ -62,6 +62,7 @@ final class LeadConversionForecastTest extends TestCase
         $this->assertDatabaseCount('crm_lead_conversions', 1);
         $this->assertDatabaseCount('crm_contacts', 1);
         $this->assertDatabaseCount('crm_accounts', 1);
+        $this->deleteJson('/api/v1/contacts/'.$contactId)->assertStatus(409);
         $this->assertDatabaseHas('audit_events', ['organization_id' => $org->id, 'action' => 'lead.converted']);
         $this->getJson('/api/v1/leads/'.$leadId.'/conversion')
             ->assertOk()->assertJsonPath('data.contact_id', $contactId);
