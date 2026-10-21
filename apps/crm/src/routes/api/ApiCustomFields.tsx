@@ -10,7 +10,6 @@ const objectTypes: ApiCustomObject[] = ['lead', 'contact', 'account', 'deal'];
 const fieldTypes: ApiCustomFieldType[] = ['text', 'number', 'date', 'boolean', 'select'];
 const message = (cause: unknown) => cause instanceof ApiError ? cause.message : 'The request could not be completed.';
 type RecordChoice = { id: string; label: string };
-type Client = ReturnType<typeof createLaravelClient>;
 
 function FieldValueRow({ row, writable, busy, onSave }: {
   row: ApiCustomFieldValue;
