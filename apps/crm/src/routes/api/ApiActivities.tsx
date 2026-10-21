@@ -239,6 +239,7 @@ export default function ApiActivities() {
       <Link className="underline" to="/crm/activities">Live Activities</Link>
       <Link className="underline" to="/crm/calendar">Live Calendar</Link>
       <Link className="underline" to="/crm/deals">Live Deals</Link>
+      <Link className="underline" to="/crm/timeline">Customer Timeline</Link>
       <Link className="underline" to="/crm/contacts">Live Contacts</Link>
       {!isLiveCrmMode && <Link className="underline" to="/app/activities">Demo Activities</Link>}
       <button type="button" className="ml-auto underline" disabled={busy} onClick={() => { void signOut(); }}>Sign out</button>

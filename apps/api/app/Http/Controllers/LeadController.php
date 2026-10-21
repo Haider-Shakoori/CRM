@@ -116,6 +116,12 @@ final class LeadController
                 'retryable' => false,
             ]], 409);
         }
+        if (\App\Models\CrmNote::withTrashed()->where('lead_id', $id)->exists()) {
+            return response()->json(['ok' => false, 'error' => [
+                'code' => 'conflict', 'message' => 'Linked CRM notes preserve this record history; deletion is blocked.',
+                'retryable' => false,
+            ]], 409);
+        }
         $lead->delete();
         AuditTrail::current($request, 'lead.deleted', 'lead', $id);
 

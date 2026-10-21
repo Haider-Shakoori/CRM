@@ -362,4 +362,36 @@ describe('Laravel browser client', () => {
     expect(init?.method).toBe('POST');
   });
 
+  it('requires organization context before reading linked customer timeline data', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(api.timeline({ subject_type: 'lead', subject_id: 'lead-1' })).rejects.toBeInstanceOf(ApiError);
+    await expect(api.createNote({ subject_type: 'lead', subject_id: 'lead-1', title: 'Private', body: 'Private' }))
+      .rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('scopes note mutations and timeline reads to the selected tenant with CSRF', async () => {
+    const mock = vi.fn<typeof fetch>().mockImplementation(async () => success({ id: 'note-1', version: 1 }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-2',
+      fetchImpl: mock, getXsrfToken: () => 'test-xsrf' });
+    await api.timeline({ subject_type: 'contact', subject_id: 'contact-1', page: 2, pageSize: 25 });
+    await api.createNote({
+      subject_type: 'contact', subject_id: 'contact-1', title: 'New note', body: 'Conversation logged',
+    });
+    await api.archiveNote('note-1', 1);
+    const [readUrl, readOptions] = mock.mock.calls[0]!;
+    expect(String(readUrl)).toContain('/api/v1/timeline?');
+    expect(new URL(String(readUrl)).searchParams.get('subject_type')).toBe('contact');
+    expect(new Headers(readOptions?.headers).get('X-Organization-ID')).toBe('org-2');
+    const [writeUrl, writeOptions] = mock.mock.calls[1]!;
+    expect(writeUrl).toBe('https://api.example.test/api/v1/notes');
+    expect(writeOptions?.method).toBe('POST');
+    expect(writeOptions?.credentials).toBe('include');
+    expect(new Headers(writeOptions?.headers).get('X-XSRF-TOKEN')).toBe('test-xsrf');
+    expect(JSON.parse(String(writeOptions?.body)).subject_id).toBe('contact-1');
+    const [, archiveOptions] = mock.mock.calls[2]!;
+    expect(archiveOptions?.method).toBe('DELETE');
+    expect(JSON.parse(String(archiveOptions?.body))).toEqual({ expected_version: 1 });
+  });
+
 });

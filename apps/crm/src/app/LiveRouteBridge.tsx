@@ -14,6 +14,7 @@ const liveRouteMap: Record<string, string> = {
   '/app/activities/all': '/crm/activities',
   '/app/tasks': '/crm/tasks',
   '/app/calendar': '/crm/calendar',
+  '/app/communications': '/crm/timeline',
 };
 
 /**
