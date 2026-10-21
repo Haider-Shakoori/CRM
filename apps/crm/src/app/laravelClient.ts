@@ -72,6 +72,12 @@ export interface ApiGlobalSearch {
   groups: Record<ApiSearchType, ApiSearchGroup>;
 }
 
+
+export type CrmTagSubject = 'lead' | 'contact' | 'account' | 'deal';
+export interface ApiTag { id: string; name: string; color: string; version: number; created_at: string }
+export interface ApiTagLink { id: string; name: string; color: string; linked_at: string }
+export interface ApiTaggedRecord { id: string; label: string; created_at: string }
+
 export interface ApiLead {
   id: string;
   organization_id: string;
@@ -525,6 +531,34 @@ export function createLaravelClient(options: ApiOptions) {
     exportDataPage: (entity: ApiImportEntity, page = 1) =>
       request<ApiTransferPage>('/api/v1/data-transfer/export?entity=' + encodeURIComponent(entity) +
         '&page=' + page + '&pageSize=100', {}, true),
+    listTags: (params: { q?: string; page?: number; pageSize?: number } = {}) => {
+      const search = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value));
+      return request<ApiPage<ApiTag>>('/api/v1/tags' + (search.size ? '?' + search.toString() : ''), {}, true);
+    },
+    createTag: (input: { name: string; color?: string }) =>
+      request<ApiTag>('/api/v1/tags', { method: 'POST', body: JSON.stringify(input) }, true),
+    updateTag: (id: string, input: { expected_version: number; name?: string; color?: string }) =>
+      request<ApiTag>('/api/v1/tags/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(input) }, true),
+    deleteTag: (id: string, expected_version: number) =>
+      request<{ id: string }>('/api/v1/tags/' + encodeURIComponent(id),
+        { method: 'DELETE', body: JSON.stringify({ expected_version }) }, true),
+    tagLinks: (subject_type: CrmTagSubject, subject_id: string) => {
+      const params = new URLSearchParams({ subject_type, subject_id });
+      return request<ApiTagLink[]>('/api/v1/tag-links?' + params.toString(), {}, true);
+    },
+    assignTag: (input: { subject_type: CrmTagSubject; subject_id: string; tag_id: string }) =>
+      request<{ tag_id: string; name: string }>('/api/v1/tag-links',
+        { method: 'POST', body: JSON.stringify(input) }, true),
+    unassignTag: (input: { subject_type: CrmTagSubject; subject_id: string; tag_id: string }) =>
+      request<{ tag_id: string }>('/api/v1/tag-links',
+        { method: 'DELETE', body: JSON.stringify(input) }, true),
+    tagRecords: (tagId: string, params: { subject_type: CrmTagSubject; page?: number; pageSize?: number }) => {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) if (value !== undefined) query.set(key, String(value));
+      return request<ApiPage<ApiTaggedRecord>>('/api/v1/tags/' + encodeURIComponent(tagId) +
+        '/records?' + query.toString(), {}, true);
+    },
     timeline: (params: { subject_type: ApiTimelineSubject; subject_id: string; page?: number; pageSize?: number }) => {
       const search = new URLSearchParams();
       for (const [key, value] of Object.entries(params)) if (value !== undefined) search.set(key, String(value));
