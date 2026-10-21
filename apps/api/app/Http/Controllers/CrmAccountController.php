@@ -91,6 +91,12 @@ final class CrmAccountController
                     'retryable' => false,
                 ]], 409);
             }
+            if (\App\Models\CrmNote::withTrashed()->where('account_id', $id)->exists()) {
+                return response()->json(['ok' => false, 'error' => [
+                    'code' => 'conflict', 'message' => 'Linked CRM notes preserve this record history; deletion is blocked.',
+                    'retryable' => false,
+                ]], 409);
+            }
             $account->delete();
             AuditTrail::current($request, 'account.deleted', 'account', $id);
             return response()->json(['ok' => true, 'data' => ['id' => $id]]);
