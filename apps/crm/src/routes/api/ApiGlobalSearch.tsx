@@ -41,8 +41,6 @@ export default function ApiGlobalSearchPage() {
   const visible = result?.key === searchKey ? result : null;
   const validTerm = term.length >= 2 && term.length <= 120;
 
-  React.useEffect(() => { setInput(term); }, [term]);
-
   React.useEffect(() => {
     if (!auth) return;
     let active = true;
