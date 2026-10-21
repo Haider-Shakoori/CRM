@@ -371,7 +371,7 @@ describe('Laravel browser client', () => {
     expect(mock).not.toHaveBeenCalled();
   });
   it('scopes note mutations and timeline reads to the selected tenant with CSRF', async () => {
-    const mock = vi.fn<typeof fetch>().mockResolvedValue(success({ id: 'note-1', version: 1 }));
+    const mock = vi.fn<typeof fetch>().mockImplementation(async () => success({ id: 'note-1', version: 1 }));
     const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-2',
       fetchImpl: mock, getXsrfToken: () => 'test-xsrf' });
     await api.timeline({ subject_type: 'contact', subject_id: 'contact-1', page: 2, pageSize: 25 });
