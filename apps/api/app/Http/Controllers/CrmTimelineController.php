@@ -50,10 +50,10 @@ final class CrmTimelineController
         $org = $context->organizationId;
         $notes = DB::table('crm_notes')->where('organization_id', $org)
             ->where($column, $data['subject_id'])->whereNull('deleted_at')
-            ->selectRaw("id, 'note'::text as entry_type, title, body as description, 'note'::text as kind, NULL::text as status, created_by as actor_user_id, created_at");
+            ->selectRaw("id, 'note'::text as entry_type, title, body as description, 'note'::text as kind, NULL::text as status, created_by as actor_user_id, created_at, NULL::timestamptz as due_at, NULL::timestamptz as completed_at, version");
         $activities = DB::table('crm_activities')->where('organization_id', $org)
             ->where($column, $data['subject_id'])->whereNull('deleted_at')
-            ->selectRaw("id, 'activity'::text as entry_type, title, notes as description, kind::text as kind, status::text as status, assigned_to as actor_user_id, created_at");
+            ->selectRaw("id, 'activity'::text as entry_type, title, notes as description, kind::text as kind, status::text as status, assigned_to as actor_user_id, created_at, due_at, completed_at, version");
         $joined = $notes->unionAll($activities);
         $page = DB::query()->fromSub($joined, 'entries')
             ->leftJoin('users as actors', 'actors.id', '=', 'entries.actor_user_id')
@@ -66,6 +66,42 @@ final class CrmTimelineController
             'meta' => ['page' => $page->currentPage(), 'pageSize' => $page->perPage(),
                 'total' => $page->total(), 'totalPages' => $page->lastPage(),
                 'hasNext' => $page->hasMorePages(), 'hasPrev' => $page->currentPage() > 1],
+        ]]);
+    }
+
+    /**
+     * Exact counts across all linked activities, independent of timeline pagination.
+     * This is a read-only snapshot; no reminders or external messages are sent.
+     */
+    public function summary(Request $request, OrganizationContext $context): JsonResponse
+    {
+        $data = $request->validate([
+            'subject_type' => ['required', Rule::in(array_keys(self::SUBJECTS))],
+            'subject_id' => ['required', 'uuid'],
+        ]);
+        $column = $this->validateSubject($data['subject_type'], $data['subject_id']);
+        $notes = DB::table('crm_notes')->where('organization_id', $context->organizationId)
+            ->where($column, $data['subject_id'])->whereNull('deleted_at')->count();
+        $base = DB::table('crm_activities')->where('organization_id', $context->organizationId)
+            ->where($column, $data['subject_id'])->whereNull('deleted_at');
+        $aggregate = (clone $base)->selectRaw(
+            "COUNT(*) as total, ".
+            "COUNT(*) FILTER (WHERE status = 'open') as open_total, ".
+            "COUNT(*) FILTER (WHERE status = 'completed') as completed_total, ".
+            "COUNT(*) FILTER (WHERE status = 'open' AND kind = 'task') as open_tasks, ".
+            "COUNT(*) FILTER (WHERE status = 'open' AND due_at IS NOT NULL AND due_at < ?) as overdue",
+            [now()]
+        )->first();
+        $next = (clone $base)->where('status', 'open')->whereNotNull('due_at')
+            ->where('due_at', '>=', now())->orderBy('due_at')->value('due_at');
+        return response()->json(['ok' => true, 'data' => [
+            'notes' => (int) $notes,
+            'activities' => (int) $aggregate->total,
+            'open' => (int) $aggregate->open_total,
+            'completed' => (int) $aggregate->completed_total,
+            'open_tasks' => (int) $aggregate->open_tasks,
+            'overdue' => (int) $aggregate->overdue,
+            'next_due_at' => $next,
         ]]);
     }
 
