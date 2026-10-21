@@ -197,6 +197,7 @@ export default function ApiTimeline() {
       <Link className="underline" to="/crm/contacts">Contacts</Link>
       <Link className="underline" to="/crm/accounts">Accounts</Link>
       <Link className="underline" to="/crm/deals">Deals</Link>
+      <Link className="underline" to="/crm/search">Global Search</Link>
       <Link className="underline" to="/crm/activities">Log call or meeting</Link>
     </nav>
     <header className="space-y-1">

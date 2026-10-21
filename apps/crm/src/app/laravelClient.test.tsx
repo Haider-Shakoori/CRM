@@ -394,4 +394,22 @@ describe('Laravel browser client', () => {
     expect(JSON.parse(String(archiveOptions?.body))).toEqual({ expected_version: 1 });
   });
 
+  it('fails closed if global search has no selected organization', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(client.globalSearch('acme')).rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('sends an organization-scoped cookie-authenticated global search request', async () => {
+    const mock = vi.fn<typeof fetch>().mockImplementation(async () => success({
+      query: 'acme', per_type: 10, groups: {},
+    }));
+    const client = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-1', fetchImpl: mock });
+    await client.globalSearch('acme');
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/search?q=acme&per_type=10');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-1');
+    expect(init?.credentials).toBe('include');
+  });
+
 });

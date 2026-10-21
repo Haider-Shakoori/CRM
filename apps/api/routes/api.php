@@ -8,6 +8,7 @@ use App\Http\Controllers\CrmPipelineController;
 use App\Http\Controllers\CrmDealController;
 use App\Http\Controllers\CrmActivityController;
 use App\Http\Controllers\CrmTimelineController;
+use App\Http\Controllers\CrmSearchController;
 use App\Http\Controllers\CrmReportingController;
 use App\Http\Controllers\CrmForecastController;
 use App\Http\Controllers\CrmLeadConversionController;
@@ -55,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
                 'timezone' => $organization->timezone,
             ]]);
         });
+        Route::get('/search', [CrmSearchController::class, 'index']);
         Route::get('/reports/overview', [CrmReportingController::class, 'overview']);
         Route::get('/reports/pipelines', [CrmReportingController::class, 'pipelines']);
         Route::get('/reports/forecast', [CrmForecastController::class, 'index']);
