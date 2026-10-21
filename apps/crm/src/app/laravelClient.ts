@@ -53,6 +53,25 @@ export interface ApiSubscriptionPlan {
   checkout_available: boolean;
 }
 
+
+export type ApiSearchType = 'leads' | 'contacts' | 'accounts' | 'deals';
+export interface ApiSearchItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  status: string | null;
+}
+export interface ApiSearchGroup {
+  items: ApiSearchItem[];
+  total: number;
+  has_more: boolean;
+}
+export interface ApiGlobalSearch {
+  query: string;
+  per_type: number;
+  groups: Record<ApiSearchType, ApiSearchGroup>;
+}
+
 export interface ApiLead {
   id: string;
   organization_id: string;
@@ -395,6 +414,10 @@ export function createLaravelClient(options: ApiOptions) {
         method: 'POST',
         body: JSON.stringify({ email, token, password, password_confirmation }),
       });
+    },
+    globalSearch: (q: string, perType = 10) => {
+      const search = new URLSearchParams({ q, per_type: String(perType) });
+      return request<ApiGlobalSearch>('/api/v1/search?' + search.toString(), {}, true);
     },
     listLeads: (params: { page?: number; pageSize?: number; status?: ApiLeadStatus; q?: string } = {}) => {
       const search = new URLSearchParams();
