@@ -442,4 +442,30 @@ describe('Laravel browser client', () => {
     expect(JSON.parse(String(fetcher.mock.calls[1]![1]?.body))).toEqual({ entity: 'leads', rows: input });
   });
 
+  it('does not query or mutate CRM tags without an organization context', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(api.listTags()).rejects.toBeInstanceOf(ApiError);
+    await expect(api.assignTag({ subject_type: 'lead', subject_id: 'lead-1', tag_id: 'tag-1' }))
+      .rejects.toBeInstanceOf(ApiError);
+    await expect(api.tagRecords('tag-1', { subject_type: 'lead' })).rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('sends tag assignments with selected organization, CSRF and explicit subject fields', async () => {
+    const mock = vi.fn<typeof fetch>().mockImplementation(async () =>
+      new Response(JSON.stringify({ ok: true, data: { tag_id: 'tag-1', name: 'Priority' } }), { status: 200 }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test',
+      organizationId: 'org-2', fetchImpl: mock, getXsrfToken: () => 'test-xsrf' });
+    await api.assignTag({ subject_type: 'contact', subject_id: 'contact-1', tag_id: 'tag-1' });
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/tag-links');
+    expect(init?.method).toBe('POST');
+    expect(init?.credentials).toBe('include');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-2');
+    expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('test-xsrf');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      subject_type: 'contact', subject_id: 'contact-1', tag_id: 'tag-1',
+    });
+  });
+
 });
