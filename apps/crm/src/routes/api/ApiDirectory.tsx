@@ -233,7 +233,7 @@ export default function ApiDirectory() {
                           const linkedName = choices?.organizationId === organizationId
                             ? choices.items.find((entry) => entry.id === contact?.account_id)?.name : undefined;
                           return <tr className="border-t" key={item.id}>
-                            <td className="p-3">{contact ? contact.first_name + ' ' + contact.last_name : account?.name}</td>
+                            <td className="p-3"><Link className="underline" to={"/crm/timeline?type=" + (isContact ? "contact" : "account") + "&id=" + encodeURIComponent(item.id)}>{contact ? contact.first_name + ' ' + contact.last_name : account?.name}</Link></td>
                             <td className="p-3">{contact?.email ?? account?.industry ?? '—'}</td>
                             <td className="p-3">{contact?.phone ?? account?.phone ?? '—'}</td>
                             <td className="p-3">{contact ? (linkedName ?? (contact.account_id ? 'Linked account' : '—')) : account?.website ?? '—'}</td>
