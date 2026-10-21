@@ -223,6 +223,28 @@ export interface ApiActivity {
   updated_at: string;
 }
 
+
+export type ApiImportEntity = 'leads' | 'contacts' | 'accounts';
+export interface ApiTransferIssue {
+  row: number;
+  field: string;
+  message: string;
+}
+export interface ApiTransferPreview {
+  entity: ApiImportEntity;
+  valid: boolean;
+  count: number;
+  issues: ApiTransferIssue[];
+  will_create: number;
+  message: string;
+}
+export interface ApiTransferPage {
+  entity: ApiImportEntity;
+  columns: string[];
+  items: Array<Record<string, string | null>>;
+  meta: { page: number; pageSize: number; total: number; hasNext: boolean };
+}
+
 export type ApiTimelineSubject = 'lead' | 'contact' | 'account' | 'deal';
 export interface ApiNote {
   id: string;
@@ -469,6 +491,15 @@ export function createLaravelClient(options: ApiOptions) {
       return request<ApiPipelineReport>('/api/v1/reports/pipelines' + search, {}, true);
     },
     listAssignees: () => request<ApiAssignee[]>('/api/v1/activities/assignees', {}, true),
+    previewDataImport: (entity: ApiImportEntity, rows: Array<Record<string, string>>) =>
+      request<ApiTransferPreview>('/api/v1/data-transfer/preview',
+        { method: 'POST', body: JSON.stringify({ entity, rows }) }, true),
+    importData: (entity: ApiImportEntity, rows: Array<Record<string, string>>) =>
+      request<{ entity: ApiImportEntity; created: number; message: string }>('/api/v1/data-transfer/import',
+        { method: 'POST', body: JSON.stringify({ entity, rows }) }, true),
+    exportDataPage: (entity: ApiImportEntity, page = 1) =>
+      request<ApiTransferPage>('/api/v1/data-transfer/export?entity=' + encodeURIComponent(entity) +
+        '&page=' + page + '&pageSize=100', {}, true),
     timeline: (params: { subject_type: ApiTimelineSubject; subject_id: string; page?: number; pageSize?: number }) => {
       const search = new URLSearchParams();
       for (const [key, value] of Object.entries(params)) if (value !== undefined) search.set(key, String(value));
