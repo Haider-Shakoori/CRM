@@ -18,6 +18,7 @@ const liveRouteMap: Record<string, string> = {
   '/app/import': '/crm/data-transfer',
   '/app/export': '/crm/data-transfer',
   '/app/search': '/crm/search',
+  '/app/tags': '/crm/tags',
 };
 
 /**
