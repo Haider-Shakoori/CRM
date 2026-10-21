@@ -111,6 +111,14 @@ final class CrmContactController
                     'retryable' => false,
                 ]], 409);
             }
+            if (\Illuminate\Support\Facades\DB::table('crm_custom_values')
+                ->where('organization_id', $contact->organization_id)
+                ->where('contact_id', $id)->exists()) {
+                return response()->json(['ok' => false, 'error' => [
+                    'code' => 'conflict', 'message' => 'Remove linked custom field values before deleting this record.',
+                    'retryable' => false,
+                ]], 409);
+            }
             $contact->delete();
             AuditTrail::current($request, 'contact.deleted', 'contact', $id);
             return response()->json(['ok' => true, 'data' => ['id' => $id]]);
