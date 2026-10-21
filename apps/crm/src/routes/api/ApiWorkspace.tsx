@@ -233,7 +233,7 @@ export default function ApiWorkspace() {
                               <thead><tr><th className="p-3">Name</th><th className="p-3">Status</th><th className="p-3">Email</th><th className="p-3">Version</th><th className="p-3">Actions</th></tr></thead>
                               <tbody>{items.map((lead) => (
                                 <tr key={lead.id} className="border-t">
-                                  <td className="p-3">{lead.name}</td><td className="p-3">{lead.status}</td>
+                                  <td className="p-3"><Link className="underline" to={"/crm/timeline?type=lead&id=" + encodeURIComponent(lead.id)}>{lead.name}</Link></td><td className="p-3">{lead.status}</td>
                                   <td className="p-3">{lead.email ?? '—'}</td><td className="p-3">{lead.version}</td>
                                   <td className="p-3 space-x-3">
                                     <button type="button" disabled={!canEdit || busy || lead.status === 'converted'} className="underline disabled:opacity-50"
