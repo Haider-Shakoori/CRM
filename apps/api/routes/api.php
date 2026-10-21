@@ -7,6 +7,7 @@ use App\Http\Controllers\CrmContactController;
 use App\Http\Controllers\CrmPipelineController;
 use App\Http\Controllers\CrmDealController;
 use App\Http\Controllers\CrmActivityController;
+use App\Http\Controllers\CrmTimelineController;
 use App\Http\Controllers\CrmReportingController;
 use App\Http\Controllers\CrmForecastController;
 use App\Http\Controllers\CrmLeadConversionController;
@@ -66,6 +67,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/deals', [CrmDealController::class, 'index']);
         Route::get('/deals/{id}', [CrmDealController::class, 'show'])->whereUuid('id');
         Route::get('/deals/{id}/events', [CrmDealController::class, 'events'])->whereUuid('id');
+        Route::get('/timeline', [CrmTimelineController::class, 'index']);
+        Route::get('/notes/{id}', [CrmTimelineController::class, 'show'])->whereUuid('id');
+        Route::get('/notes/{id}/events', [CrmTimelineController::class, 'events'])->whereUuid('id');
         Route::get('/activities/assignees', [CrmActivityController::class, 'assignees']);
         Route::get('/activities', [CrmActivityController::class, 'index']);
         Route::get('/activities/{id}', [CrmActivityController::class, 'show'])->whereUuid('id');
@@ -75,6 +79,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/leads/{id}/conversion', [CrmLeadConversionController::class, 'show'])->whereUuid('id');
         Route::get('/leads/{id}/matches', [CrmLeadConversionController::class, 'matches'])->whereUuid('id');
         Route::middleware('organization.write')->group(function () {
+            Route::post('/notes', [CrmTimelineController::class, 'store']);
+            Route::patch('/notes/{id}', [CrmTimelineController::class, 'update'])->whereUuid('id');
+            Route::delete('/notes/{id}', [CrmTimelineController::class, 'destroy'])->whereUuid('id');
             Route::post('/accounts', [CrmAccountController::class, 'store']);
             Route::patch('/accounts/{id}', [CrmAccountController::class, 'update'])->whereUuid('id');
             Route::delete('/accounts/{id}', [CrmAccountController::class, 'destroy'])->whereUuid('id');
