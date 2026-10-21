@@ -335,7 +335,7 @@ export default function ApiDeals() {
                               <p className="text-xs capitalize text-muted">{stage.kind}</p>
                               {items.length === 0 && <p className="text-xs text-muted">No deals on this page</p>}
                               {items.map((deal) => <article key={deal.id} className="space-y-2 rounded border bg-surface p-3 text-sm">
-                                <h3 className="break-words font-medium">{deal.name}</h3>
+                                <h3 className="break-words font-medium"><Link className="underline" to={"/crm/timeline?type=deal&id=" + encodeURIComponent(deal.id)}>{deal.name}</Link></h3>
                                 <p className="text-muted">{deal.amount} {deal.currency}</p>
                                 <p className="text-xs text-muted">Version {deal.version}</p>
                                 <label className="block space-y-1 text-xs">Move to
