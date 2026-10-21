@@ -248,6 +248,18 @@ export interface ApiTimelineEntry {
   actor_user_id: string;
   actor_name: string | null;
   created_at: string;
+  due_at: string | null;
+  completed_at: string | null;
+  version: number;
+}
+export interface ApiTimelineSummary {
+  notes: number;
+  activities: number;
+  open: number;
+  completed: number;
+  open_tasks: number;
+  overdue: number;
+  next_due_at: string | null;
 }
 export interface ApiTimelinePage extends ApiPage<ApiTimelineEntry> {
   subject_type: ApiTimelineSubject;
@@ -473,6 +485,10 @@ export function createLaravelClient(options: ApiOptions) {
       const search = new URLSearchParams();
       for (const [key, value] of Object.entries(params)) if (value !== undefined) search.set(key, String(value));
       return request<ApiTimelinePage>('/api/v1/timeline?' + search.toString(), {}, true);
+    },
+    timelineSummary: (params: { subject_type: ApiTimelineSubject; subject_id: string }) => {
+      const search = new URLSearchParams(params);
+      return request<ApiTimelineSummary>('/api/v1/timeline/summary?' + search.toString(), {}, true);
     },
     createNote: (input: NoteInput) =>
       request<ApiNote>('/api/v1/notes', { method: 'POST', body: JSON.stringify(input) }, true),
