@@ -85,6 +85,7 @@ export const routes: RouteObject[] = [
   { path: '/crm/tasks', element: lazyScreen(() => import('../routes/api/ApiActivities')) },
   { path: '/crm/my-work', element: lazyScreen(() => import('../routes/api/ApiActivities')) },
   { path: '/crm/calendar', element: lazyScreen(() => import('../routes/api/ApiCalendar')) },
+  { path: '/crm/timeline', element: lazyScreen(() => import('../routes/api/ApiTimeline')) },
   { path: '/crm/dashboard', element: lazyScreen(() => import('../routes/api/ApiReportingDashboard')) },
   { path: '/crm/subscription', element: lazyScreen(() => import('../routes/api/ApiSubscriptionPage')) },
   { path: '/forgot-password', element: lazyScreen(() => import('../routes/api/ApiPasswordRecovery')) },
