@@ -411,5 +411,35 @@ describe('Laravel browser client', () => {
     expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-1');
     expect(init?.credentials).toBe('include');
   });
+  it('fails closed for bulk CRM imports and exports without an organization', async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: fetcher });
+    await expect(api.previewDataImport('leads', [{ name: 'Amina' }])).rejects.toBeInstanceOf(ApiError);
+    await expect(api.importData('leads', [{ name: 'Amina' }])).rejects.toBeInstanceOf(ApiError);
+    await expect(api.exportDataPage('contacts')).rejects.toBeInstanceOf(ApiError);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('uses scoped CSRF-protected preview and import transport', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => ({
+      ok: true, status: 200, json: async () => ({ ok: true, data: { valid: true, count: 1, issues: [] } }),
+    }) as Response);
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-1',
+      fetchImpl: fetcher, getXsrfToken: () => 'csrf-test' });
+    const input = [{ name: 'Amina', email: 'amina@example.test' }];
+    await api.previewDataImport('leads', input);
+    await api.importData('leads', input);
+    await api.exportDataPage('leads', 2);
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      'https://api.example.test/api/v1/data-transfer/preview',
+      'https://api.example.test/api/v1/data-transfer/import',
+      'https://api.example.test/api/v1/data-transfer/export?entity=leads&page=2&pageSize=100',
+    ]);
+    for (const [url, init] of fetcher.mock.calls) {
+      expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-1');
+      expect(init?.credentials).toBe('include');
+      if (!String(url).includes('/export')) expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('csrf-test');
+    }
+    expect(JSON.parse(String(fetcher.mock.calls[1]![1]?.body))).toEqual({ entity: 'leads', rows: input });
+  });
 
 });
