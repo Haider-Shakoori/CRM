@@ -13,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 final class CrmDataTransferController
 {
@@ -207,7 +206,7 @@ final class CrmDataTransferController
         ]);
         return response()->json(['ok' => true, 'data' => [
             'entity' => $entity, 'columns' => $fields,
-            'items' => array_map(fn ($record) => collect($record)->only($fields)->all(), $page->items()),
+            'items' => array_map(fn ($record) => $record->only($fields), $page->items()),
             'meta' => [
                 'page' => $page->currentPage(), 'total' => $page->total(),
                 'hasNext' => $page->hasMorePages(),
