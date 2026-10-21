@@ -8,6 +8,7 @@ use App\Http\Controllers\CrmPipelineController;
 use App\Http\Controllers\CrmDealController;
 use App\Http\Controllers\CrmActivityController;
 use App\Http\Controllers\CrmTimelineController;
+use App\Http\Controllers\CrmDataTransferController;
 use App\Http\Controllers\CrmSearchController;
 use App\Http\Controllers\CrmReportingController;
 use App\Http\Controllers\CrmForecastController;
@@ -69,6 +70,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/deals', [CrmDealController::class, 'index']);
         Route::get('/deals/{id}', [CrmDealController::class, 'show'])->whereUuid('id');
         Route::get('/deals/{id}/events', [CrmDealController::class, 'events'])->whereUuid('id');
+        Route::get('/data-transfer/export', [CrmDataTransferController::class, 'export']);
+        Route::post('/data-transfer/preview', [CrmDataTransferController::class, 'preview']);
         Route::get('/timeline', [CrmTimelineController::class, 'index']);
         Route::get('/timeline/summary', [CrmTimelineController::class, 'summary']);
         Route::get('/notes/{id}', [CrmTimelineController::class, 'show'])->whereUuid('id');
@@ -82,6 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/leads/{id}/conversion', [CrmLeadConversionController::class, 'show'])->whereUuid('id');
         Route::get('/leads/{id}/matches', [CrmLeadConversionController::class, 'matches'])->whereUuid('id');
         Route::middleware('organization.write')->group(function () {
+            Route::post('/data-transfer/import', [CrmDataTransferController::class, 'commit']);
             Route::post('/notes', [CrmTimelineController::class, 'store']);
             Route::patch('/notes/{id}', [CrmTimelineController::class, 'update'])->whereUuid('id');
             Route::delete('/notes/{id}', [CrmTimelineController::class, 'destroy'])->whereUuid('id');
