@@ -193,7 +193,7 @@ export default function ApiTimeline() {
                         selectRecord('', event.target.value as ApiTimelineSubject);
                         setSearch(''); setSearchInput('');
                       }}>
-                      {types.map((type) => <option key={type} value={type}>{type[0].toUpperCase() + type.slice(1)}</option>)}
+                      {types.map((type) => <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>)}
                     </select>
                   </label>
                   <form className="flex gap-2 sm:col-span-2" onSubmit={(event) => {
