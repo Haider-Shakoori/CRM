@@ -97,6 +97,14 @@ final class CrmAccountController
                     'retryable' => false,
                 ]], 409);
             }
+            if (\Illuminate\Support\Facades\DB::table('crm_custom_values')
+                ->where('organization_id', $account->organization_id)
+                ->where('account_id', $id)->exists()) {
+                return response()->json(['ok' => false, 'error' => [
+                    'code' => 'conflict', 'message' => 'Remove linked custom field values before deleting this record.',
+                    'retryable' => false,
+                ]], 409);
+            }
             $account->delete();
             AuditTrail::current($request, 'account.deleted', 'account', $id);
             return response()->json(['ok' => true, 'data' => ['id' => $id]]);
