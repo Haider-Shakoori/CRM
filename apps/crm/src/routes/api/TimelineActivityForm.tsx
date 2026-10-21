@@ -90,7 +90,7 @@ export default function TimelineActivityForm({ client, subjectType, subjectId, o
         placeholder="What was discussed, what happens next…"/>
     </label>
     <div className="grid gap-3 sm:grid-cols-2">
-      <label className="block text-sm">{status === 'completed' ? 'Interaction date / time (optional)' : 'Due date / time (optional)'}
+      <label className="block text-sm">Planned / reference due date and time (optional)
         <input type="datetime-local" className="mt-1 block w-full rounded border p-2"
           value={due} onChange={(event) => setDue(event.target.value)}/>
       </label>
