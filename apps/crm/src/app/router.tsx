@@ -88,6 +88,7 @@ export const routes: RouteObject[] = [
   { path: '/crm/timeline', element: lazyScreen(() => import('../routes/api/ApiTimeline')) },
   { path: '/crm/data-transfer', element: lazyScreen(() => import('../routes/api/ApiDataTransfer')) },
   { path: '/crm/search', element: lazyScreen(() => import('../routes/api/ApiGlobalSearch')) },
+  { path: '/crm/tags', element: lazyScreen(() => import('../routes/api/ApiTags')) },
   { path: '/crm/dashboard', element: lazyScreen(() => import('../routes/api/ApiReportingDashboard')) },
   { path: '/crm/subscription', element: lazyScreen(() => import('../routes/api/ApiSubscriptionPage')) },
   { path: '/forgot-password', element: lazyScreen(() => import('../routes/api/ApiPasswordRecovery')) },
