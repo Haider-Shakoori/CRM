@@ -125,6 +125,7 @@ export default function ApiReportingDashboard() {
       <Link className="underline" to="/crm/deals">Deals</Link>
       <Link className="underline" to="/crm/my-work">My Work</Link>
       <Link className="underline" to="/crm/calendar">Calendar</Link>
+      <Link className="underline" to="/crm/timeline">Customer Timeline</Link>
       <Link className="underline" to="/crm/subscription">Subscription & Usage</Link>
       {!isLiveCrmMode && <Link className="underline" to="/app/home">Demo dashboard</Link>}
       <button type="button" disabled={busy} onClick={() => { void signOut(); }}
