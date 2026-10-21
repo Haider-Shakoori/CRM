@@ -222,6 +222,52 @@ export interface ApiActivity {
   created_at: string;
   updated_at: string;
 }
+
+export type ApiTimelineSubject = 'lead' | 'contact' | 'account' | 'deal';
+export interface ApiNote {
+  id: string;
+  organization_id: string;
+  created_by: string;
+  title: string;
+  body: string;
+  lead_id: string | null;
+  contact_id: string | null;
+  account_id: string | null;
+  deal_id: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+export interface ApiTimelineEntry {
+  id: string;
+  entry_type: 'note' | 'activity';
+  title: string;
+  description: string | null;
+  kind: 'note' | ApiActivityKind;
+  status: ApiActivityStatus | null;
+  actor_user_id: string;
+  actor_name: string | null;
+  created_at: string;
+}
+export interface ApiTimelinePage extends ApiPage<ApiTimelineEntry> {
+  subject_type: ApiTimelineSubject;
+  subject_id: string;
+}
+export interface ApiNoteEvent {
+  id: string;
+  note_id: string;
+  actor_user_id: string;
+  action: 'created' | 'updated' | 'archived';
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+export interface NoteInput {
+  subject_type: ApiTimelineSubject;
+  subject_id: string;
+  title: string;
+  body: string;
+}
+
 export interface ApiAssignee {
   id: string;
   name: string;
@@ -423,6 +469,21 @@ export function createLaravelClient(options: ApiOptions) {
       return request<ApiPipelineReport>('/api/v1/reports/pipelines' + search, {}, true);
     },
     listAssignees: () => request<ApiAssignee[]>('/api/v1/activities/assignees', {}, true),
+    timeline: (params: { subject_type: ApiTimelineSubject; subject_id: string; page?: number; pageSize?: number }) => {
+      const search = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) if (value !== undefined) search.set(key, String(value));
+      return request<ApiTimelinePage>('/api/v1/timeline?' + search.toString(), {}, true);
+    },
+    createNote: (input: NoteInput) =>
+      request<ApiNote>('/api/v1/notes', { method: 'POST', body: JSON.stringify(input) }, true),
+    getNote: (id: string) => request<ApiNote>('/api/v1/notes/' + encodeURIComponent(id), {}, true),
+    noteEvents: (id: string) =>
+      request<ApiNoteEvent[]>('/api/v1/notes/' + encodeURIComponent(id) + '/events', {}, true),
+    updateNote: (id: string, patch: { expected_version: number; title?: string; body?: string }) =>
+      request<ApiNote>('/api/v1/notes/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(patch) }, true),
+    archiveNote: (id: string, expected_version: number) =>
+      request<{ id: string }>('/api/v1/notes/' + encodeURIComponent(id),
+        { method: 'DELETE', body: JSON.stringify({ expected_version }) }, true),
     listActivities: (params: { page?: number; pageSize?: number; q?: string; kind?: ApiActivityKind;
       status?: ApiActivityStatus; assigned_to?: string; mine?: boolean; due_before?: string; due_from?: string; due_to?: string } = {}) => {
       const search = new URLSearchParams();
