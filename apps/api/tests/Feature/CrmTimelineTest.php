@@ -171,4 +171,60 @@ final class CrmTimelineTest extends TestCase
         $this->getJson('/api/v1/timeline?subject_type=lead&subject_id='.$ids['lead'].'&pageSize=1&page=2')
             ->assertJsonPath('data.meta.total', 2)->assertJsonPath('data.meta.hasNext', false);
     }
+    public function test_follow_up_summary_counts_only_live_linked_activities_with_real_due_dates(): void
+    {
+        $alpha = $this->org('Alpha');
+        $bravo = $this->org('Bravo');
+        $this->actingAs($this->user($bravo))->withHeader('X-Organization-ID', $bravo->id);
+        $foreign = $this->postJson('/api/v1/leads', ['name' => 'Foreign lead'])->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/activities', [
+            'kind' => 'task', 'title' => 'Foreign overdue', 'lead_id' => $foreign,
+            'due_at' => now()->subDays(2)->toIso8601String(),
+        ])->assertCreated();
+        $owner = $this->user($alpha);
+        $viewer = $this->user($alpha, 'viewer');
+        $this->actingAs($owner)->withHeader('X-Organization-ID', $alpha->id);
+        $lead = $this->postJson('/api/v1/leads', ['name' => 'Customer lead'])->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/notes', [
+            'subject_type' => 'lead', 'subject_id' => $lead,
+            'title' => 'Summary note', 'body' => 'Follow-up details',
+        ])->assertCreated();
+        $overdue = $this->postJson('/api/v1/activities', [
+            'kind' => 'task', 'title' => 'Call back overdue', 'lead_id' => $lead,
+            'due_at' => now()->subDay()->toIso8601String(),
+        ])->assertCreated()->json('data.id');
+        $future = $this->postJson('/api/v1/activities', [
+            'kind' => 'task', 'title' => 'Follow-up tomorrow', 'lead_id' => $lead,
+            'due_at' => now()->addDay()->toIso8601String(),
+        ])->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/activities', [
+            'kind' => 'meeting', 'title' => 'Finished meeting', 'status' => 'completed',
+            'lead_id' => $lead, 'due_at' => now()->subDay()->toIso8601String(),
+        ])->assertCreated();
+        $this->getJson('/api/v1/timeline/summary?subject_type=lead&subject_id='.$lead)
+            ->assertOk()->assertJsonPath('data.notes', 1)
+            ->assertJsonPath('data.activities', 3)->assertJsonPath('data.open', 2)
+            ->assertJsonPath('data.completed', 1)->assertJsonPath('data.open_tasks', 2)
+            ->assertJsonPath('data.overdue', 1)
+            ->assertJsonStructure(['data' => ['next_due_at']]);
+        $this->getJson('/api/v1/timeline?subject_type=lead&subject_id='.$lead)
+            ->assertOk()->assertJsonPath('data.meta.total', 4)
+            ->assertJsonStructure(['data' => ['items' => [['entry_type', 'version', 'due_at', 'completed_at']]]]);
+        $this->actingAs($viewer);
+        $this->getJson('/api/v1/timeline/summary?subject_type=lead&subject_id='.$lead)
+            ->assertOk()->assertJsonPath('data.overdue', 1);
+        $this->getJson('/api/v1/timeline/summary?subject_type=lead&subject_id='.$foreign)
+            ->assertUnprocessable();
+        $this->actingAs($owner);
+        $this->patchJson('/api/v1/activities/'.$overdue, [
+            'status' => 'completed', 'expected_version' => 1,
+        ])->assertOk();
+        $this->getJson('/api/v1/timeline/summary?subject_type=lead&subject_id='.$lead)
+            ->assertJsonPath('data.overdue', 0)->assertJsonPath('data.completed', 2);
+        $this->deleteJson('/api/v1/activities/'.$future)->assertOk();
+        $this->getJson('/api/v1/timeline/summary?subject_type=lead&subject_id='.$lead)
+            ->assertJsonPath('data.open_tasks', 0)->assertJsonPath('data.activities', 2);
+    }
+
+
 }
