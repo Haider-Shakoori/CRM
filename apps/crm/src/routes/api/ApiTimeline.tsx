@@ -274,7 +274,7 @@ export default function ApiTimeline() {
                                   <span className="text-sm capitalize text-muted">{entry.kind}{entry.status ? ' · ' + entry.status : ''}</span>
                                 </div>
                                 {entry.description && <p className="whitespace-pre-wrap break-words text-sm">{entry.description}</p>}
-                                <p className="text-xs text-muted">{entry.actor_name ?? 'CRM member'} · {new Date(entry.created_at).toLocaleString()}</p>
+                                <p className="text-xs text-muted">{entry.entry_type === 'note' ? 'Noted by ' : 'Assigned to '}{entry.actor_name ?? 'CRM member'} · Logged {new Date(entry.created_at).toLocaleString()}</p>
                                 {entry.entry_type === 'note' && canWrite && <div className="flex gap-4 text-sm">
                                   <button className="underline" disabled={busy} type="button"
                                     onClick={() => { void startEdit(entry); }}>Edit note</button>
