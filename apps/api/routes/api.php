@@ -68,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/deals/{id}', [CrmDealController::class, 'show'])->whereUuid('id');
         Route::get('/deals/{id}/events', [CrmDealController::class, 'events'])->whereUuid('id');
         Route::get('/timeline', [CrmTimelineController::class, 'index']);
+        Route::get('/timeline/summary', [CrmTimelineController::class, 'summary']);
         Route::get('/notes/{id}', [CrmTimelineController::class, 'show'])->whereUuid('id');
         Route::get('/notes/{id}/events', [CrmTimelineController::class, 'events'])->whereUuid('id');
         Route::get('/activities/assignees', [CrmActivityController::class, 'assignees']);
