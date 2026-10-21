@@ -108,6 +108,8 @@ final class CrmCustomFieldsTest extends TestCase
         ]))->assertUnprocessable();
         $this->assertDatabaseHas('audit_events', ['organization_id' => $alpha->id,
             'action' => 'custom_field.value_saved']);
+        $this->deleteJson('/api/v1/leads/'.$lead)->assertStatus(409)
+            ->assertJsonPath('error.code', 'conflict');
     }
 
     public function test_select_number_boolean_and_date_validation(): void
