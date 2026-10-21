@@ -116,23 +116,24 @@ export default function ApiTags() {
     setEditing(null); setConfirmDelete(null); setTags(null); setSegments(null); setChoices(null);
     setError(''); setNotice('');
   };
-  const write = async (operation: () => Promise<unknown>, success: string) => {
+  const write = async (operation: () => Promise<unknown>, success: string): Promise<boolean> => {
     setBusy(true); setError(''); setNotice('');
     try {
-      await operation(); refresh(); setNotice(success);
+      await operation(); refresh(); setNotice(success); return true;
     } catch (cause) {
       setError(message(cause));
       if (cause instanceof ApiError && cause.status === 409) refresh();
+      return false;
     } finally { setBusy(false); }
   };
   const saveTag = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!client || !canManage || busy || !draft.name.trim()) return;
-    await write(() => editing
+    const ok = await write(() => editing
       ? client.updateTag(editing.id, { name: draft.name.trim(), color: draft.color, expected_version: editing.version })
       : client.createTag({ name: draft.name.trim(), color: draft.color }),
     editing ? 'Tag updated.' : 'Tag created.');
-    setDraft(starting); setEditing(null);
+    if (ok) { setDraft(starting); setEditing(null); }
   };
 
   return <main className="mx-auto max-w-6xl space-y-6 p-5">
@@ -224,8 +225,14 @@ export default function ApiTags() {
                         <button className="rounded border px-3 py-2" type="button" disabled={busy}
                           onClick={() => {
                             if (!client) return;
-                            void write(() => client.deleteTag(confirmDelete.id, confirmDelete.version), 'Tag deleted.');
-                            setConfirmDelete(null); if (selectedId === confirmDelete.id) chooseTag('');
+                            const tag = confirmDelete;
+                            void (async () => {
+                              const ok = await write(() => client.deleteTag(tag.id, tag.version), 'Tag deleted.');
+                              if (ok) {
+                                setConfirmDelete(null);
+                                if (selectedId === tag.id) chooseTag('');
+                              }
+                            })();
                           }}>Confirm delete</button>
                         <button type="button" className="underline" onClick={() => setConfirmDelete(null)}>Cancel</button>
                       </div>
@@ -292,10 +299,13 @@ export default function ApiTags() {
                           <button type="button" className="rounded bg-blue-700 px-4 py-2 text-white"
                             disabled={!recordId || busy} onClick={() => {
                               if (!client) return;
-                              void write(() => client.assignTag({
-                                subject_type: subjectType, subject_id: recordId, tag_id: selectedId,
-                              }), 'Tag assigned to this record.');
-                              setRecordId('');
+                              const id = recordId;
+                              void (async () => {
+                                const ok = await write(() => client.assignTag({
+                                  subject_type: subjectType, subject_id: id, tag_id: selectedId,
+                                }), 'Tag assigned to this record.');
+                                if (ok) setRecordId('');
+                              })();
                             }}>Assign tag</button>
                         </div>}
                       </>}
