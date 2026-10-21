@@ -126,6 +126,7 @@ export default function ApiReportingDashboard() {
       <Link className="underline" to="/crm/my-work">My Work</Link>
       <Link className="underline" to="/crm/calendar">Calendar</Link>
       <Link className="underline" to="/crm/timeline">Customer Timeline</Link>
+      <Link className="underline" to="/crm/data-transfer">Import / Export</Link>
       <Link className="underline" to="/crm/search">Search CRM</Link>
       <Link className="underline" to="/crm/subscription">Subscription & Usage</Link>
       {!isLiveCrmMode && <Link className="underline" to="/app/home">Demo dashboard</Link>}
