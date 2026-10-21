@@ -3,13 +3,15 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ApiError, createLaravelClient,
   type ApiIdentity, type ApiNote, type ApiTimelineEntry, type ApiTimelinePage,
-  type ApiTimelineSubject,
+  type ApiTimelineSubject, type ApiTimelineSummary,
 } from '../../app/laravelClient';
+import TimelineActivityForm from './TimelineActivityForm';
 import { preferredLiveOrganization, storeLiveOrganization } from '../../app/liveOrganization';
 
 type RecordOption = { id: string; label: string };
 type RecordResults = { key: string; items: RecordOption[]; error?: string };
 type TimelineResult = { key: string; page: ApiTimelinePage | null; error?: string };
+type SummaryResult = { key: string; data: ApiTimelineSummary | null; error?: string };
 const types: ApiTimelineSubject[] = ['lead', 'contact', 'account', 'deal'];
 const explain = (cause: unknown) =>
   cause instanceof ApiError ? cause.message : 'Could not complete this CRM request.';
@@ -33,6 +35,9 @@ export default function ApiTimeline() {
   const [search, setSearch] = React.useState('');
   const [records, setRecords] = React.useState<RecordResults | null>(null);
   const [timeline, setTimeline] = React.useState<TimelineResult | null>(null);
+  const [summary, setSummary] = React.useState<SummaryResult | null>(null);
+  const [activityFormOpen, setActivityFormOpen] = React.useState(false);
+  const [activityBusy, setActivityBusy] = React.useState(false);
   const [page, setPage] = React.useState(1);
   const [revision, setRevision] = React.useState(0);
   const [draft, setDraft] = React.useState({ title: '', body: '' });
@@ -48,6 +53,8 @@ export default function ApiTimeline() {
   const timelineKey = JSON.stringify([organizationId, subjectType, subjectId, page, revision]);
   const visibleRecords = records?.key === recordKey ? records : null;
   const visibleTimeline = timeline?.key === timelineKey ? timeline : null;
+  const summaryKey = JSON.stringify([organizationId, subjectType, subjectId, revision]);
+  const visibleSummary = summary?.key === summaryKey ? summary : null;
 
   React.useEffect(() => {
     if (!auth) return;
@@ -97,9 +104,37 @@ export default function ApiTimeline() {
     return () => { active = false; };
   }, [client, organizationId, subjectId, subjectType, page, revision, timelineKey, identity?.user.email_verified, navigate]);
 
+  React.useEffect(() => {
+    if (!client || !organizationId || !subjectId || !identity?.user.email_verified) return;
+    let active = true;
+    void client.timelineSummary({ subject_type: subjectType, subject_id: subjectId }).then((data) => {
+      if (active) setSummary({ key: summaryKey, data });
+    }).catch((cause: unknown) => {
+      if (!active) return;
+      if (cause instanceof ApiError && cause.status === 401) navigate('/api-sign-in', { replace: true });
+      else setSummary({ key: summaryKey, data: null, error: explain(cause) });
+    });
+    return () => { active = false; };
+  }, [client, organizationId, subjectId, subjectType, revision, summaryKey, identity?.user.email_verified, navigate]);
+
+  const updateActivityStatus = async (entry: ApiTimelineEntry) => {
+    if (!client || entry.entry_type !== 'activity' || !canWrite || activityBusy) return;
+    setActivityBusy(true); setError(''); setNotice('');
+    try {
+      const nextStatus = entry.status === 'completed' ? 'open' : 'completed';
+      await client.updateActivity(entry.id, {
+        expected_version: entry.version, status: nextStatus,
+      });
+      refresh(); setNotice(nextStatus === 'completed' ? 'Activity marked complete.' : 'Activity reopened.');
+    } catch (cause) {
+      setError(explain(cause));
+      if (cause instanceof ApiError && cause.status === 409) refresh();
+    } finally { setActivityBusy(false); }
+  };
+
   const selectRecord = (id: string, type: ApiTimelineSubject = subjectType) => {
     setParams(id ? { type, id } : { type });
-    setPage(1); setFormOpen(false); setEditing(null); setConfirmArchive(null);
+    setPage(1); setFormOpen(false); setActivityFormOpen(false); setEditing(null); setConfirmArchive(null);
     setError(''); setNotice('');
   };
   const refresh = () => setRevision((value) => value + 1);
@@ -181,7 +216,7 @@ export default function ApiTimeline() {
                       onChange={(event) => {
                         setOrganizationId(event.target.value); storeLiveOrganization(event.target.value);
                         setParams({ type: subjectType }); setRecords(null); setTimeline(null);
-                        setFormOpen(false); setEditing(null); setConfirmArchive(null);
+                        setFormOpen(false); setActivityFormOpen(false); setEditing(null); setConfirmArchive(null);
                         setPage(1); setError(''); setNotice('');
                       }}>
                       {identity.organizations.map((org) => <option key={org.id} value={org.id}>{org.name} ({org.role})</option>)}
@@ -226,15 +261,44 @@ export default function ApiTimeline() {
                   : <>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <h2 className="text-lg font-semibold">Activity history</h2>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button type="button" className="rounded border px-3 py-2" onClick={refresh}>Refresh</button>
+                        {canWrite && <button type="button" className="rounded border px-3 py-2"
+                          onClick={() => { setActivityFormOpen(true); setFormOpen(false); setEditing(null); setConfirmArchive(null); setError(''); }}>
+                          Log call, meeting or task
+                        </button>}
                         {canWrite && <button type="button" className="rounded bg-blue-700 px-4 py-2 text-white"
                           onClick={() => {
-                            setDraft({ title: '', body: '' }); setEditing(null); setFormOpen(true);
+                            setDraft({ title: '', body: '' }); setEditing(null); setActivityFormOpen(false); setFormOpen(true);
                             setConfirmArchive(null); setError('');
                           }}>Add note</button>}
                       </div>
                     </div>
+                    {visibleSummary?.error && <p role="alert">{visibleSummary.error}</p>}
+                    {visibleSummary?.data && <section aria-label="Follow-up summary" className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                      {([
+                        ['Notes', visibleSummary.data.notes],
+                        ['Activities', visibleSummary.data.activities],
+                        ['Open', visibleSummary.data.open],
+                        ['Completed', visibleSummary.data.completed],
+                        ['Open tasks', visibleSummary.data.open_tasks],
+                        ['Overdue', visibleSummary.data.overdue],
+                      ] as const).map(([label, value]) => <div key={label} className="rounded border p-3">
+                        <p className="text-xs text-muted">{label}</p>
+                        <p className="text-xl font-semibold tabular-nums">{value}</p>
+                      </div>)}
+                      <p className="text-sm text-muted sm:col-span-3 lg:col-span-6">
+                        Next scheduled follow-up: {visibleSummary.data.next_due_at
+                          ? new Date(visibleSummary.data.next_due_at).toLocaleString() : 'None scheduled'}
+                      </p>
+                    </section>}
+                    {activityFormOpen && client && canWrite &&
+                      <TimelineActivityForm key={organizationId + ':' + subjectType + ':' + subjectId}
+                        client={client} subjectType={subjectType} subjectId={subjectId}
+                        onSaved={() => {
+                          setActivityFormOpen(false); setPage(1); refresh();
+                          setNotice('Interaction saved to the customer timeline.');
+                        }} onCancel={() => setActivityFormOpen(false)}/>}
                     {formOpen && canWrite && <form className="space-y-3 rounded-xl border p-4"
                       onSubmit={(event) => { void submit(event); }}>
                       <h3 className="font-semibold">{editing ? 'Edit note' : 'New note'}</h3>
@@ -274,7 +338,16 @@ export default function ApiTimeline() {
                                   <span className="text-sm capitalize text-muted">{entry.kind}{entry.status ? ' · ' + entry.status : ''}</span>
                                 </div>
                                 {entry.description && <p className="whitespace-pre-wrap break-words text-sm">{entry.description}</p>}
+                                {entry.entry_type === 'activity' && entry.due_at &&
+                                  <p className="text-xs text-muted">Due: {new Date(entry.due_at).toLocaleString()}</p>}
+                                {entry.entry_type === 'activity' && entry.completed_at &&
+                                  <p className="text-xs text-muted">Completed: {new Date(entry.completed_at).toLocaleString()}</p>}
                                 <p className="text-xs text-muted">{entry.entry_type === 'note' ? 'Noted by ' : 'Assigned to '}{entry.actor_name ?? 'CRM member'} · Logged {new Date(entry.created_at).toLocaleString()}</p>
+                                {entry.entry_type === 'activity' && canWrite && entry.status !== 'cancelled' &&
+                                  <button className="underline text-sm" type="button" disabled={activityBusy}
+                                    onClick={() => { void updateActivityStatus(entry); }}>
+                                    {entry.status === 'completed' ? 'Reopen follow-up' : 'Mark completed'}
+                                  </button>}
                                 {entry.entry_type === 'note' && canWrite && <div className="flex gap-4 text-sm">
                                   <button className="underline" disabled={busy} type="button"
                                     onClick={() => { void startEdit(entry); }}>Edit note</button>
