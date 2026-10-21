@@ -73,6 +73,16 @@ export interface ApiGlobalSearch {
 }
 
 
+export type ApiCustomObject = 'lead' | 'contact' | 'account' | 'deal';
+export type ApiCustomFieldType = 'text' | 'number' | 'date' | 'boolean' | 'select';
+export type ApiCustomValue = string | number | boolean;
+export interface ApiCustomField {
+  id: string; object_type: ApiCustomObject; field_key: string; label: string;
+  field_type: ApiCustomFieldType; options: string[];
+  is_active: boolean; version: number;
+}
+export interface ApiCustomFieldValue { field: ApiCustomField; value: ApiCustomValue | null; version: number | null }
+
 export type CrmTagSubject = 'lead' | 'contact' | 'account' | 'deal';
 export interface ApiTag { id: string; name: string; color: string; version: number; created_at: string }
 export interface ApiTagLink { id: string; name: string; color: string; linked_at: string }
@@ -531,6 +541,21 @@ export function createLaravelClient(options: ApiOptions) {
     exportDataPage: (entity: ApiImportEntity, page = 1) =>
       request<ApiTransferPage>('/api/v1/data-transfer/export?entity=' + encodeURIComponent(entity) +
         '&page=' + page + '&pageSize=100', {}, true),
+    customFields: (object_type: ApiCustomObject) =>
+      request<ApiCustomField[]>('/api/v1/custom-fields?' + new URLSearchParams({ object_type }), {}, true),
+    createCustomField: (input: { object_type: ApiCustomObject; field_key: string; label: string;
+      field_type: ApiCustomFieldType; options?: string[] }) =>
+      request<ApiCustomField>('/api/v1/custom-fields', { method: 'POST', body: JSON.stringify(input) }, true),
+    updateCustomField: (id: string, input: { expected_version: number; label?: string; is_active?: boolean }) =>
+      request<ApiCustomField>('/api/v1/custom-fields/' + encodeURIComponent(id),
+        { method: 'PATCH', body: JSON.stringify(input) }, true),
+    customValues: (subject_type: ApiCustomObject, subject_id: string) =>
+      request<ApiCustomFieldValue[]>('/api/v1/custom-fields/values?' +
+        new URLSearchParams({ subject_type, subject_id }), {}, true),
+    saveCustomValue: (input: { field_id: string; subject_type: ApiCustomObject;
+      subject_id: string; value: ApiCustomValue; expected_version: number | null }) =>
+      request<{ field_id: string; value: ApiCustomValue; version: number }>(
+        '/api/v1/custom-fields/values', { method: 'PUT', body: JSON.stringify(input) }, true),
     listTags: (params: { q?: string; page?: number; pageSize?: number } = {}) => {
       const search = new URLSearchParams();
       for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value));

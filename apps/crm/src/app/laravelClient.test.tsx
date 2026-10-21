@@ -468,4 +468,36 @@ describe('Laravel browser client', () => {
     });
   });
 
+  it('requires tenant context for custom property schema and values', async () => {
+    const mock = vi.fn<typeof fetch>();
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', fetchImpl: mock });
+    await expect(api.customFields('lead')).rejects.toBeInstanceOf(ApiError);
+    await expect(api.customValues('lead', 'lead-1')).rejects.toBeInstanceOf(ApiError);
+    await expect(api.saveCustomValue({ field_id: 'field-1', subject_type: 'lead',
+      subject_id: 'lead-1', value: false, expected_version: null })).rejects.toBeInstanceOf(ApiError);
+    expect(mock).not.toHaveBeenCalled();
+  });
+  it('writes typed custom field values using session cookies and scoped CSRF headers', async () => {
+    const mock = vi.fn<typeof fetch>().mockImplementation(async () => success({
+      field_id: 'field-1', value: false, version: 1,
+    }));
+    const api = createLaravelClient({ baseUrl: 'https://api.example.test', organizationId: 'org-1',
+      fetchImpl: mock, getXsrfToken: () => 'xsrf' });
+    const saved = await api.saveCustomValue({
+      field_id: 'field-1', subject_type: 'contact', subject_id: 'contact-1',
+      value: false, expected_version: null,
+    });
+    expect(saved.value).toBe(false);
+    const [url, init] = mock.mock.calls[0]!;
+    expect(url).toBe('https://api.example.test/api/v1/custom-fields/values');
+    expect(init?.method).toBe('PUT');
+    expect(init?.credentials).toBe('include');
+    expect(new Headers(init?.headers).get('X-Organization-ID')).toBe('org-1');
+    expect(new Headers(init?.headers).get('X-XSRF-TOKEN')).toBe('xsrf');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      field_id: 'field-1', subject_type: 'contact', subject_id: 'contact-1',
+      value: false, expected_version: null,
+    });
+  });
+
 });

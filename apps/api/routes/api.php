@@ -9,6 +9,7 @@ use App\Http\Controllers\CrmDealController;
 use App\Http\Controllers\CrmActivityController;
 use App\Http\Controllers\CrmTimelineController;
 use App\Http\Controllers\CrmTagsController;
+use App\Http\Controllers\CrmCustomFieldsController;
 use App\Http\Controllers\CrmDataTransferController;
 use App\Http\Controllers\CrmSearchController;
 use App\Http\Controllers\CrmReportingController;
@@ -73,6 +74,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/deals/{id}/events', [CrmDealController::class, 'events'])->whereUuid('id');
         Route::get('/data-transfer/export', [CrmDataTransferController::class, 'export']);
         Route::post('/data-transfer/preview', [CrmDataTransferController::class, 'preview']);
+        Route::get('/custom-fields', [CrmCustomFieldsController::class, 'fields']);
+        Route::get('/custom-fields/values', [CrmCustomFieldsController::class, 'values']);
         Route::get('/tags', [CrmTagsController::class, 'index']);
         Route::get('/tag-links', [CrmTagsController::class, 'assignments']);
         Route::get('/tags/{id}/records', [CrmTagsController::class, 'records'])->whereUuid('id');
@@ -89,6 +92,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/leads/{id}/conversion', [CrmLeadConversionController::class, 'show'])->whereUuid('id');
         Route::get('/leads/{id}/matches', [CrmLeadConversionController::class, 'matches'])->whereUuid('id');
         Route::middleware('organization.write')->group(function () {
+            Route::post('/custom-fields', [CrmCustomFieldsController::class, 'create']);
+            Route::patch('/custom-fields/{id}', [CrmCustomFieldsController::class, 'update'])->whereUuid('id');
+            Route::put('/custom-fields/values', [CrmCustomFieldsController::class, 'saveValue']);
             Route::post('/tags', [CrmTagsController::class, 'create']);
             Route::patch('/tags/{id}', [CrmTagsController::class, 'update'])->whereUuid('id');
             Route::delete('/tags/{id}', [CrmTagsController::class, 'destroy'])->whereUuid('id');

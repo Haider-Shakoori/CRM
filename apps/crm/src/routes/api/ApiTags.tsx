@@ -141,6 +141,7 @@ export default function ApiTags() {
       <Link className="underline" to="/crm/dashboard">Live Dashboard</Link>
       <Link className="underline" to="/crm/search">Global Search</Link>
       <Link className="underline" to="/crm/timeline">Customer Timeline</Link>
+      <Link className="underline" to="/crm/custom-fields">Custom Fields</Link>
       <Link className="underline" to="/crm/leads">Leads</Link>
       <Link className="underline" to="/crm/contacts">Contacts</Link>
     </nav>
