@@ -51,8 +51,7 @@ describe('Laravel CRM custom fields', () => {
     render(<MemoryRouter initialEntries={['/crm/custom-fields?type=lead&id=lead-1']}>
       <ApiCustomFields />
     </MemoryRouter>);
-    await screen.findByText('Priority');
-    await screen.findByLabelText('priority'.charAt(0).toUpperCase() + 'riority');
+    await screen.findByLabelText('Priority');
     expect(screen.queryByRole('button', { name: 'Create field' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save value' })).toBeNull();
     expect(fetcher.mock.calls.every(([, init]) => init?.method !== 'PUT')).toBe(true);
